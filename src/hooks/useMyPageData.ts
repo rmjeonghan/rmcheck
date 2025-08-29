@@ -4,27 +4,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/firebase';
-import { collection, query, where, getDocs, documentId, orderBy, DocumentData } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId, orderBy, DocumentData, doc, getDoc } from 'firebase/firestore';
 import { differenceInCalendarDays, parseISO, format } from 'date-fns';
-// ▼▼▼ 글로벌 타입을 import 합니다. ▼▼▼
-import { Submission, Question } from '@/types'; 
-
-// ---👇 로컬 타입 정의를 삭제합니다. ---
-/*
-interface FirestoreSubmission { ... }
-export interface Submission extends FirestoreSubmission { ... }
-export interface Question { ... }
-*/
+import { Submission, Question, LearningPlan } from '@/types'; 
 
 export interface MyPageData {
   submissions: Submission[];
-  incorrectQuestions: Question[]; // Question 타입으로 명확히 지정
+  incorrectQuestions: Question[]; 
   totalAnsweredCount: number;
   totalIncorrectCount: number;
   studyStreak: number;
   strongestChapter: string | null;
   weakestChapter: string | null;
   loading: boolean;
+  plan: LearningPlan | null;
 }
 
 export function useMyPageData(): MyPageData {
@@ -37,6 +30,7 @@ export function useMyPageData(): MyPageData {
     studyStreak: 0,
     strongestChapter: null,
     weakestChapter: null,
+    plan: null,
   });
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +45,6 @@ export function useMyPageData(): MyPageData {
       try {
         const submissionsQuery = query(collection(db, 'submissions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
         const submissionsSnapshot = await getDocs(submissionsQuery);
-        // ---👇 가져온 데이터에 글로벌 Submission 타입을 명시해줍니다. ---
         const originalSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Submission));
 
         // 모든 문제 ID와 오답 문제 ID를 모읍니다.
@@ -60,7 +53,6 @@ export function useMyPageData(): MyPageData {
         
         const questionsMap = new Map<string, Question>();
         if (allQuestionIds.length > 0) {
-            // Firestore in 쿼리 제한(최대 30개)에 맞춰 청크 분할
             for (let i = 0; i < allQuestionIds.length; i += 30) {
                 const chunk = allQuestionIds.slice(i, i + 30);
                 const q = query(collection(db, 'questionBank'), where(documentId(), 'in', chunk));
@@ -69,12 +61,12 @@ export function useMyPageData(): MyPageData {
                     const data = doc.data();
                     questionsMap.set(doc.id, { 
                         id: doc.id, 
-                        questionText: data.questionText, // 이 부분을 추가했습니다.
-                        choices: data.choices,         // 이 부분을 추가했습니다.
+                        questionText: data.questionText,
+                        choices: data.choices,
                         answerIndex: data.answerIndex,
                         subChapter: data.subChapter,
                         mainChapter: data.mainChapter
-                    } as Question); // Question 타입 단언
+                    } as Question);
                 });
             }
         }
@@ -83,7 +75,6 @@ export function useMyPageData(): MyPageData {
             const firstQuestion = s.questionIds ? questionsMap.get(s.questionIds[0]) : null;
             const isCorrectArray = (s.questionIds || []).map((qId: string, index: number) => {
                 const question = questionsMap.get(qId);
-                // questionsMap에 questionText, choices 필드가 추가되었으므로 이제 완전한 question 객체입니다.
                 return question ? question.answerIndex === s.answers?.[index] : false;
             });
 
@@ -99,9 +90,10 @@ export function useMyPageData(): MyPageData {
         const uniqueIncorrectQuestionIds = [...new Set(allIncorrectQuestionIdsInSubmissions)];
         const incorrectQuestionsData = uniqueIncorrectQuestionIds
             .map(qId => questionsMap.get(qId))
-            .filter((q): q is Question => q !== undefined); // undefined 필터링 및 Question 타입 단언
+            .filter((q): q is Question => q !== undefined);
         
-        const submissionDates = [...new Set(processedSubmissions.map(s => format(s.createdAt.toDate(), 'yyyy-MM-dd')))].sort().reverse();
+        // createdAt 필드가 있는 데이터만 필터링하여 처리
+        const submissionDates = [...new Set(originalSubmissions.filter(s => s.createdAt).map(s => format(s.createdAt.toDate(), 'yyyy-MM-dd')))].sort().reverse();
         let streak = 0;
         if (submissionDates.length > 0) {
             const today = new Date();
@@ -146,14 +138,19 @@ export function useMyPageData(): MyPageData {
             else if (analyzableChapters[0].rate <= 60) weakest = analyzableChapters[0].name;
         }
         
+        const planDocRef = doc(db, 'learningPlans', user.uid);
+        const planDoc = await getDoc(planDocRef);
+        const fetchedPlan = planDoc.exists() ? planDoc.data() as LearningPlan : null;
+        
         setData({
           submissions: processedSubmissions,
           incorrectQuestions: incorrectQuestionsData,
           totalAnsweredCount: allQuestionIds.length,
-          totalIncorrectCount: uniqueIncorrectQuestionIds.length, // 오답 문제의 총 개수는 uniqueIncorrectQuestionIds의 길이
+          totalIncorrectCount: uniqueIncorrectQuestionIds.length,
           studyStreak: streak,
           strongestChapter: strongest,
           weakestChapter: weakest,
+          plan: fetchedPlan,
         });
 
       } catch (error) {

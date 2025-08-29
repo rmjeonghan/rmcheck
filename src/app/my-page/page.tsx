@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useMyPageData } from '@/hooks/useMyPageData';
+import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, List, ClipboardX, Award, CalendarDays } from 'lucide-react';
 
@@ -11,14 +12,16 @@ import AnalysisView from '@/components/AnalysisView';
 import RecentActivityView from '@/components/RecentActivityView';
 import IncorrectNoteView from '@/components/IncorrectNoteView';
 import HomeSkeleton from '@/components/HomeSkeleton';
-import MyPageHeader from '@/components/MyPageHeader'; // 새로운 컴포넌트
-import DashboardWidgets from '@/components/DashboardWidgets'; // 새로운 컴포넌트
-import AchievementBadges from '@/components/AchievementBadges'; // 새로운 컴포넌트
-import MyReportTabs from '@/components/MyReportTabs'; // 새로운 컴포넌트 (탭 UI 로직 분리)
+import MyPageHeader from '@/components/MyPageHeader'; 
+import DashboardWidgets from '@/components/DashboardWidgets'; 
+import AchievementBadges from '@/components/AchievementBadges'; 
+import MyReportTabs from '@/components/MyReportTabs';
+import CurrentPlanCard from '@/components/CurrentPlanCard';
 
 type Tab = 'dashboard' | 'analysis' | 'activity' | 'notes' | 'achievements';
 
 export default function MyPage() {
+  const { user } = useAuth();
   const { 
     loading,
     submissions,
@@ -26,7 +29,8 @@ export default function MyPage() {
     studyStreak,
     strongestChapter,
     weakestChapter,
-    totalAnsweredCount
+    totalAnsweredCount,
+    plan
   } = useMyPageData();
   
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -50,8 +54,10 @@ export default function MyPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-        <MyPageHeader userName="학습자" />
+        <MyPageHeader userName={user?.displayName || "학습자"} />
 
+        {plan && <CurrentPlanCard plan={plan} onEditClick={() => { /* ... */ }} />}
+        
         <div className="relative bg-white rounded-2xl shadow-xl mt-8">
           <MyReportTabs tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
           
@@ -77,7 +83,7 @@ export default function MyPage() {
                     totalAnsweredCount={totalAnsweredCount}
                     strongestChapter={strongestChapter}
                     weakestChapter={weakestChapter}
-                    submissions={submissions} // 주석 제거
+                    submissions={submissions}
                   />
                 )}
                 {activeTab === 'activity' && <RecentActivityView submissions={submissions} />}
