@@ -98,6 +98,14 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
     exit: (direction: number) => ({ y: direction < 0 ? 15 : -15, opacity: 0 }),
   };
 
+  // initialSelectedIds 변수 선언 및 초기화
+  const initialSelectedIds = useMemo(() => {
+    if (editingWeekIndex !== null && weeklyPlans[editingWeekIndex]) {
+      return weeklyPlans[editingWeekIndex].unitIds;
+    }
+    return [];
+  }, [editingWeekIndex, weeklyPlans]);
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center p-4 z-50">
@@ -163,9 +171,9 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
                             const newFreq = parseInt(e.target.value, 10);
                             updateWeeklyPlan(index, { sessionsPerWeek: newFreq, studyDays: DEFAULT_DAYS_BY_FREQ[newFreq] });
                           }} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-thumb" />
-                         <motion.div className="absolute top-1 left-0 h-2 bg-blue-500 rounded-lg pointer-events-none" style={{ originX: 0 }}
-                           animate={{ width: `${((plan.sessionsPerWeek - 1) / 6) * 100}%` }}
-                           transition={{ type: 'spring', stiffness: 500, damping: 30 }} />
+                           <motion.div className="absolute top-1 left-0 h-2 bg-blue-500 rounded-lg pointer-events-none" style={{ originX: 0 }}
+                            animate={{ width: `${((plan.sessionsPerWeek - 1) / 6) * 100}%` }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }} />
                       </div>
                     </div>
                     
@@ -213,7 +221,7 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
         <NewChapterSelectModal
           onClose={() => setIsChapterModalOpen(false)}
           onComplete={handleUnitsSelected}
-          initialSelectedIds={editingWeekIndex !== null ? weeklyPlans[editingWeekIndex].unitIds : []}
+          initialSelectedIds={initialSelectedIds} // useMemo로 정의된 initialSelectedIds 사용
         />
       )}
     </>
