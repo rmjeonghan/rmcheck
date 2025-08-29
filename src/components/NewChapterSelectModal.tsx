@@ -1,182 +1,206 @@
-// src/components/NewChapterSelectModal.tsx
-'use client';
+import React, { useState } from 'react';
+import Modal from '@/components/Modal';
+import { FaBook, FaFolder } from 'react-icons/fa';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { db } from '@/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { X, Check } from 'lucide-react';
+interface SubChapter {
+  id: string;
+  name: string;
+}
 
-// 타입 정의
-interface Subject { id: string; name: string; order: number; }
-interface MainChapter { id: string; name: string; subjectId: string; order: number; }
-interface SubChapter { id: string; name: string; mainChapterId: string; order: number; }
+interface Chapter {
+  id: string;
+  name: string;
+  subChapters: string[];
+}
 
-type NewChapterSelectModalProps = {
-  onClose: () => void;
-  onComplete: (selection: { unitIds: string[]; unitNames: string[] }) => void;
-  initialSelectedIds?: string[];
+interface Subject {
+  id: string;
+  name: string;
+  chapters: Chapter[];
+}
+
+const curriculumData = {
+  '통합과학 1': [
+    { id: '1-1', name: '과학의 기초', subChapters: ['1-1-1: 시간과 공간', '1-1-2: 기본량과 단위', '1-1-3: 측정과 측정 표준', '1-1-4: 정보와 디지털 기술'] },
+    { id: '1-2', name: '원소의 형성', subChapters: ['1-2-1: 우주 초기에 형성된 원소', '1-2-2: 지구와 생명체를 이루는 원소의 생성'] },
+    { id: '1-3', name: '물질의 규칙성과 성질', subChapters: ['1-3-1: 원소의 주기성과 화학 결합', '1-3-2: 이온 결합과 공유 결합', '1-3-3: 지각과 생명체 구성 물질의 규칙성', '1-3-4: 물질의 전기적 성질'] },
+    { id: '1-4', name: '지구시스템', subChapters: ['1-4-1: 지구시스템의 구성 요소', '1-4-2: 지구시스템의 상호작용', '1-4-3: 지권의 변화'] },
+    { id: '1-5', name: '역학 시스템', subChapters: ['1-5-1: 중력과 역학 시스템', '1-5-2: 운동과 충돌'] },
+    { id: '1-6', name: '생명 시스템', subChapters: ['1-6-1: 생명 시스템의 기본 단위', '1-6-2: 물질대사와 효소', '1-6-3: 세포 내 정보의 흐름'] },
+  ],
+  '통합과학 2': [
+    { id: '2-1', name: '지질 시대와 생물 다양성', subChapters: ['2-1-1: 지질시대의 생물과 화석', '2-1-2: 자연선택과 진화', '2-1-3: 생물다양성과 보전'] },
+    { id: '2-2', name: '화학 변화', subChapters: ['2-2-1: 산화와 환원', '2-2-2: 산성과 염기성', '2-2-3: 중화 반응', '2-2-4: 물질 변화에서 에너지 출입'] },
+    { id: '2-3', name: '생태계와 환경 변화', subChapters: ['2-3-1: 생태계 구성 요소', '2-3-2: 생태계 평형', '2-3-3: 기후 변화와 지구 환경 변화'] },
+    { id: '2-4', name: '에너지와 지속가능한 발전', subChapters: ['2-4-1: 태양 에너지의 생성과 전환', '2-4-2: 전기 에너지의 생산', '2-4-3: 에너지 효율과 신재생 에너지'] },
+    { id: '2-5', name: '과학과 미래 사회', subChapters: ['2-5-1: 과학의 유용성과 필요성', '2-5-2: 과학 기술 사회와 빅데이터', '2-5-3: 과학 기술의 발전과 미래 사회', '2-5-4: 과학 관련 사회적 쟁점과 과학 윤리'] },
+  ],
 };
 
-export default function NewChapterSelectModal({
+const subjects: Subject[] = Object.entries(curriculumData).map(([subjectName, chapters]) => ({
+  id: subjectName,
+  name: subjectName,
+  chapters: chapters.map(chapter => ({
+    ...chapter,
+  })),
+}));
+
+interface NewChapterSelectModalProps {
+  onClose: () => void;
+  onComplete: (selected: {
+    unitIds: string[];
+    unitNames: string[];
+  }) => void;
+  initialSelectedUnitIds?: string[];
+}
+
+const NewChapterSelectModal: React.FC<NewChapterSelectModalProps> = ({
   onClose,
   onComplete,
-  initialSelectedIds = [],
-}: NewChapterSelectModalProps) {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [mainChapters, setMainChapters] = useState<MainChapter[]>([]);
-  const [subChapters, setSubChapters] = useState<SubChapter[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  initialSelectedUnitIds = [],
+}) => {
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(subjects[0].id);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedSubChapters, setSelectedSubChapters] = useState<string[]>(initialSelectedUnitIds);
 
-  const [activeSubjectId, setActiveSubjectId] = useState<string>('');
-  const [activeMainChapterId, setActiveMainChapterId] = useState<string>('');
-  const [selectedSubChapterIds, setSelectedSubChapterIds] = useState<Set<string>>(new Set(initialSelectedIds));
-  const [direction, setDirection] = useState(0);
+  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
+  const selectedChapter = selectedSubject?.chapters.find((c) => c.id === selectedChapterId);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const subjectQuery = query(collection(db, 'subjects'), orderBy('order'));
-        const mainChapterQuery = query(collection(db, 'mainChapters'), orderBy('order'));
-        const subChapterQuery = query(collection(db, 'subChapters'), orderBy('order'));
-
-        const [subjectSnapshot, mainChapterSnapshot, subChapterSnapshot] = await Promise.all([
-          getDocs(subjectQuery), getDocs(mainChapterQuery), getDocs(subChapterQuery),
-        ]);
-
-        const subjectData = subjectSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subject));
-        setSubjects(subjectData);
-        if (subjectData.length > 0) setActiveSubjectId(subjectData[0].id);
-
-        setMainChapters(mainChapterSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MainChapter)));
-        setSubChapters(subChapterSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubChapter)));
-
-      } catch (error) {
-        console.error("단원 정보를 불러오는 데 실패했습니다:", error);
-      } finally {
-        setIsLoading(false);
+  const handleSubChapterToggle = (subChapterName: string) => {
+    setSelectedSubChapters((prev) => {
+      if (prev.includes(subChapterName)) {
+        return prev.filter((name) => name !== subChapterName);
+      } else {
+        return [...prev, subChapterName];
       }
-    };
-    fetchData();
-  }, []);
-  
-  const handleSubjectChange = (newSubjectId: string) => {
-    const currentIndex = subjects.findIndex(s => s.id === activeSubjectId);
-    const newIndex = subjects.findIndex(s => s.id === newSubjectId);
-    setDirection(newIndex > currentIndex ? 1 : -1);
-    setActiveSubjectId(newSubjectId);
-    setActiveMainChapterId('');
-  };
-
-  const handleSelectSubChapter = (id: string) => {
-    setSelectedSubChapterIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      return newSet;
     });
   };
 
+  const isSubChapterSelected = (subChapterName: string) =>
+    selectedSubChapters.includes(subChapterName);
+
   const handleComplete = () => {
-    const unitIds = Array.from(selectedSubChapterIds);
-    const unitNames = subChapters.filter(sc => unitIds.includes(sc.id)).map(sc => sc.name);
-    onComplete({ unitIds, unitNames });
+    onComplete({
+      unitIds: selectedSubChapters.map(name => `${selectedSubjectId}-${name.split(':')[0]}`),
+      unitNames: selectedSubChapters,
+    });
   };
 
-  const sliderVariants = {
-    enter: (direction: number) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (direction: number) => ({ x: direction < 0 ? '100%' : '-100%', opacity: 0 }),
-  };
-  
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center p-4 z-50">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-slate-100 rounded-2xl shadow-xl w-full max-w-4xl h-[80vh] flex flex-col"
-      >
-        <header className="flex-shrink-0 p-5 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">학습 단원 선택</h2>
-          <div className="flex items-center p-1 bg-gray-200 rounded-lg">
-            {subjects.map((subject) => (
-              <button key={subject.id} onClick={() => handleSubjectChange(subject.id)}
-                className={`relative px-4 py-2 rounded-md font-bold text-sm transition-colors
-                  ${activeSubjectId === subject.id ? 'text-blue-600' : 'text-gray-500 hover:text-black'}`}>
-                {activeSubjectId === subject.id && 
-                  <motion.div layoutId="subject-highlighter" className="absolute inset-0 bg-white rounded-md shadow-sm z-0"/>}
-                <span className="relative z-10">{subject.name}</span>
+    <Modal onClose={onClose}>
+      <div className="p-6 md:p-8 bg-white rounded-lg shadow-xl max-w-2xl mx-auto w-full">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">단원 선택</h2>
+        <p className="text-gray-500 mb-6">
+          학습할 단원들을 선택해주세요.
+        </p>
+
+        <div className="flex justify-center space-x-4 mb-6">
+          {subjects.map((subject) => (
+            <button
+              key={subject.id}
+              onClick={() => {
+                setSelectedSubjectId(subject.id);
+                setSelectedChapterId(null);
+                setSelectedSubChapters([]);
+              }}
+              className={`px-4 py-2 rounded-full font-semibold transition-colors duration-200 ${
+                selectedSubjectId === subject.id
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {subject.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-gray-100 rounded-xl p-4 md:p-6 flex space-x-4 h-[500px]">
+          <div className="w-1/3 flex flex-col space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">대단원</h3>
+            {selectedSubject?.chapters.map((chapter) => (
+              <button
+                key={chapter.id}
+                onClick={() => setSelectedChapterId(chapter.id)}
+                className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
+                  selectedChapterId === chapter.id
+                    ? 'bg-white text-blue-600 shadow-md transform scale-105'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <FaFolder className="mr-3" />
+                <span className="font-medium text-sm md:text-base text-left">
+                  {chapter.name}
+                </span>
               </button>
             ))}
           </div>
-        </header>
 
-        <main className="flex-grow flex overflow-hidden relative">
-          {isLoading ? (
-            <div className="flex items-center justify-center w-full text-gray-500">단원 목록을 불러오는 중...</div>
-          ) : (
-            <AnimatePresence initial={false} custom={direction}>
-              <motion.div
-                key={activeSubjectId}
-                variants={sliderVariants}
-                custom={direction}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className="absolute inset-0 flex"
-              >
-                <div className="flex-grow bg-white p-6 overflow-y-auto">
-                  {activeMainChapterId ? (
-                    <div className="space-y-2">
-                      {subChapters.filter(sc => sc.mainChapterId === activeMainChapterId).map(sc => (
-                        <motion.button key={sc.id} onClick={() => handleSelectSubChapter(sc.id)}
-                          className="w-full text-left p-3 rounded-md flex items-center gap-3 transition-colors hover:bg-slate-50"
-                          whileTap={{scale: 0.98}}>
-                          <div className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center
-                            ${selectedSubChapterIds.has(sc.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>
-                            {selectedSubChapterIds.has(sc.id) && <Check size={14} className="text-white" />}
-                          </div>
-                          <span className="text-gray-700">{sc.name}</span>
-                        </motion.button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400">
-                      <p>오른쪽 탭에서 대단원을 선택하세요.</p>
-                    </div>
-                  )}
-                </div>
+          <div className="w-2/3 bg-white p-4 rounded-lg shadow-inner overflow-y-auto custom-scrollbar">
+            {selectedChapter ? (
+              <>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                  <FaBook className="inline mr-2 text-blue-500" />
+                  {selectedChapter.name}
+                </h3>
+                <ul className="space-y-3">
+                  {selectedChapter.subChapters.map((subChapterName) => (
+                    <li
+                      key={subChapterName}
+                      onClick={() => handleSubChapterToggle(subChapterName)}
+                      className={`cursor-pointer p-4 rounded-lg transition-colors duration-200 border-2 ${
+                        isSubChapterSelected(subChapterName)
+                          ? 'bg-blue-100 border-blue-500 shadow-sm'
+                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-base md:text-lg font-medium text-gray-800">
+                          {subChapterName}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={isSubChapterSelected(subChapterName)}
+                          onChange={() => {}}
+                          className="form-checkbox h-5 w-5 text-blue-600 rounded-md"
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <FaFolder className="text-6xl mb-4" />
+                <p className="text-center text-lg">
+                  왼쪽에서 대단원을 선택해주세요.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
 
-                <div className="w-48 bg-slate-50 border-l border-gray-200 p-3 overflow-y-auto">
-                  <div className="space-y-2">
-                    {mainChapters.filter(mc => mc.subjectId === activeSubjectId).map(mc => (
-                      <button key={mc.id} onClick={() => setActiveMainChapterId(mc.id)}
-                        className={`relative w-full p-3 rounded-lg text-left font-semibold text-sm transition-all
-                          ${activeMainChapterId === mc.id ? 'text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>
-                        {activeMainChapterId === mc.id && 
-                          <motion.div layoutId="main-chapter-highlighter" className="absolute inset-0 bg-blue-100 rounded-lg z-0"/>}
-                        <span className="relative z-10">{mc.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </main>
-
-        <footer className="flex-shrink-0 p-4 border-t border-gray-200 flex justify-between items-center">
-          <button onClick={onClose} className="font-bold text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200">
+        <div className="mt-6 flex justify-end space-x-4">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 border border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-100 transition-colors duration-200"
+          >
             취소
           </button>
-          <button onClick={handleComplete}
-            className="px-6 py-2 bg-blue-500 text-white font-bold rounded-full shadow-md hover:bg-blue-600">
-            선택 완료 ({selectedSubChapterIds.size}개)
+          <button
+            onClick={handleComplete}
+            disabled={selectedSubChapters.length === 0}
+            className={`px-6 py-2 rounded-full font-bold transition-colors duration-200 ${
+              selectedSubChapters.length > 0
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            선택 완료 ({selectedSubChapters.length})
           </button>
-        </footer>
-      </motion.div>
-    </div>
+        </div>
+      </div>
+    </Modal>
   );
-}
+};
+
+export default NewChapterSelectModal;

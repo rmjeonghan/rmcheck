@@ -4,6 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { add, format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+// ▼▼▼ 새로 만든 NewChapterSelectModal을 import 합니다. ▼▼▼
 import NewChapterSelectModal from './NewChapterSelectModal';
 import { WeeklyPlan, PlanToSave } from '@/types';
 import { X, Calendar, Repeat, BookOpen, Star, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -145,6 +146,7 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
                     <h4 className="font-bold text-lg text-gray-800">{plan.week}주차</h4>
                     
                     <div>
+                      {/* ▼▼▼ 학습 횟수 UI를 한 줄로 합쳤습니다. ▼▼▼ */}
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-md font-semibold text-gray-600 flex items-center gap-2"><Repeat size={18} /> 학습 횟수</label>
                         <div className="text-blue-500 font-bold h-6 flex items-center">
@@ -206,6 +208,7 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
         </motion.div>
       </div>
 
+      {/* ▼▼▼ 기존 ChapterSelectModal을 새로 만든 NewChapterSelectModal로 교체합니다. ▼▼▼ */}
       {isChapterModalOpen && (
         <NewChapterSelectModal
           onClose={() => setIsChapterModalOpen(false)}

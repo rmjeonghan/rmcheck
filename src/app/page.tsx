@@ -2,7 +2,12 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { StudentData, LearningPlan, PlanToSave, AcademyAssignment } from '@/types';
+import { 
+  StudentData, 
+  LearningPlan, 
+  PlanToSave, 
+  AcademyAssignment 
+} from '@/types';
 import ChapterSelectModal from '@/components/ChapterSelectModal';
 import QuizView from '@/components/QuizView';
 import ResultsView from '@/components/ResultsView';
@@ -272,7 +277,7 @@ export default function Home() {
       )}
       
       {learningPlan ? (
-        <CurrentPlanWidget plan={learningPlan} submissions={submissions} onEditClick={() => setIsSetupModalOpen(true)} />
+        <CurrentPlanWidget plan={learningPlan} submissions={submissions} onEditClick={() => setIsSetupModalOpen(true)} onStartRecommended={() => startQuiz(recommendedMode)} />
       ) : (
         <SetupPromptWidget onSetupClick={() => setIsSetupModalOpen(true)} />
       )}
@@ -297,7 +302,6 @@ export default function Home() {
       }
 
       {isReviewModalOpen && <ReviewModeModal onClose={() => setIsReviewModalOpen(false)} onSelectMode={handleReviewModeSelect} />}
-      
       {isSetupModalOpen && <LearningPlanSetup onClose={() => setIsSetupModalOpen(false)} onSave={handleSavePlan} existingPlan={learningPlan} />}
     </main>
   );
