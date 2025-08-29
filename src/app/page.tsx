@@ -1,13 +1,8 @@
+// src/app/page.tsx
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-// --- 타입 import 경로 ---
-import { 
-  StudentData, 
-  LearningPlan, 
-  PlanToSave, 
-  AcademyAssignment 
-} from '@/types';
+import { StudentData, LearningPlan, PlanToSave, AcademyAssignment } from '@/types';
 import ChapterSelectModal from '@/components/ChapterSelectModal';
 import QuizView from '@/components/QuizView';
 import ResultsView from '@/components/ResultsView';
@@ -122,7 +117,6 @@ export default function Home() {
   const handleStartAssignment = (assignment: AcademyAssignment) => {
     if (!assignment) return;
     setCurrentAssignmentId(assignment.id);
-    // 과제 시작 시에는 'mixed' 모드로 고정
     setSelectedQuizMode('mixed'); 
     handleSelectionComplete({
       unitIds: assignment.assignedUnitIds,
@@ -154,7 +148,6 @@ export default function Home() {
   const handleSelectionComplete = async (options: { unitIds: string[]; count: number; mode?: QuizMode }) => {
     setIsChapterModalOpen(false);
     setIsLoading(true);
-    // [BUG FIX] 옵션으로 mode가 명시적으로 들어오지 않으면, state에 저장된 selectedQuizMode를 사용
     const modeToRequest = options.mode || selectedQuizMode;
     if (!modeToRequest) {
         toast.error("퀴즈 모드가 선택되지 않았습니다.");
@@ -279,7 +272,7 @@ export default function Home() {
       )}
       
       {learningPlan ? (
-        <CurrentPlanWidget plan={learningPlan} submissions={submissions} onEditClick={() => setIsSetupModalOpen(true)} onStartRecommended={() => startQuiz(recommendedMode)} />
+        <CurrentPlanWidget plan={learningPlan} submissions={submissions} onEditClick={() => setIsSetupModalOpen(true)} />
       ) : (
         <SetupPromptWidget onSetupClick={() => setIsSetupModalOpen(true)} />
       )}
@@ -296,7 +289,6 @@ export default function Home() {
 
       {isJoinAcademyModalOpen && <JoinAcademyModal onClose={() => setIsJoinAcademyModalOpen(false)} onConfirm={handleJoinAcademyRequest} />}
       
-      {/* [BUG FIX] onComplete 핸들러 수정 */}
       {isChapterModalOpen && 
         <ChapterSelectModal 
           onClose={() => setIsChapterModalOpen(false)} 
@@ -305,6 +297,7 @@ export default function Home() {
       }
 
       {isReviewModalOpen && <ReviewModeModal onClose={() => setIsReviewModalOpen(false)} onSelectMode={handleReviewModeSelect} />}
+      
       {isSetupModalOpen && <LearningPlanSetup onClose={() => setIsSetupModalOpen(false)} onSave={handleSavePlan} existingPlan={learningPlan} />}
     </main>
   );

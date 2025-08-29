@@ -1,22 +1,31 @@
+// src/components/JoinAcademyWidget.tsx
 'use client';
+import { motion } from 'framer-motion';
 
-type JoinAcademyWidgetProps = {
+type Props = {
   onJoinClick: () => void;
 };
 
-export default function JoinAcademyWidget({ onJoinClick }: JoinAcademyWidgetProps) {
+export default function JoinAcademyWidget({ onJoinClick }: Props) {
   return (
-    <section className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-lg text-center mb-8">
-      <h3 className="text-xl font-bold text-gray-800">학원 수업에 참여하시나요?</h3>
-      <p className="text-gray-600 mt-2 mb-4">
-        학원에 소속되어 있다면, 가입 요청을 보내 선생님이 내주는 과제를 받아보세요.
+    <motion.div 
+      className="bg-slate-100 border-2 border-dashed border-slate-300 p-8 rounded-lg mb-8 text-center"
+      whileHover={{ scale: 1.03, transition: { type: 'spring', stiffness: 300 } }}
+    >
+      <h3 className="text-xl font-bold text-slate-700">
+        소속된 학원이 있으신가요?
+      </h3>
+      <p className="text-slate-500 my-2">
+        학원에 가입하고 선생님이 내주는 과제를 관리해보세요.
       </p>
-      <button
+      <motion.button
         onClick={onJoinClick}
-        className="px-6 py-2 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors"
+        className="mt-4 bg-slate-800 text-white font-bold py-3 px-6 rounded-full"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.98 }}
       >
-        학원 가입 요청하기
-      </button>
-    </section>
+        학원 코드로 가입하기
+      </motion.button>
+    </motion.div>
   );
 }

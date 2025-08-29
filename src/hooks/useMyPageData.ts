@@ -6,32 +6,15 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/firebase';
 import { collection, query, where, getDocs, documentId, orderBy, DocumentData } from 'firebase/firestore';
 import { differenceInCalendarDays, parseISO, format } from 'date-fns';
+// ▼▼▼ 글로벌 타입을 import 합니다. ▼▼▼
+import { Submission, Question } from '@/types'; 
 
-// ---👇 Firestore에서 오는 원본 데이터 타입을 정의합니다. ---
-interface FirestoreSubmission {
-  id: string;
-  score: number;
-  createdAt: { toDate: () => Date };
-  questionIds?: string[];
-  answers?: number[];
-  incorrectQuestionIds?: string[];
-  mainChapter?: string;
-  subChapter?: string;
-  userId: string;
-  timeTaken: number;
-}
-
-// ---👇 앱 전체에서 사용할 최종 Submission 타입을 정의합니다. ---
-export interface Submission extends FirestoreSubmission {
-  isCorrect: boolean[];
-}
-
-export interface Question {
-    id: string;
-    answerIndex: number;
-    subChapter: string;
-    mainChapter: string;
-}
+// ---👇 로컬 타입 정의를 삭제합니다. ---
+/*
+interface FirestoreSubmission { ... }
+export interface Submission extends FirestoreSubmission { ... }
+export interface Question { ... }
+*/
 
 export interface MyPageData {
   submissions: Submission[];
@@ -68,8 +51,8 @@ export function useMyPageData(): MyPageData {
       try {
         const submissionsQuery = query(collection(db, 'submissions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
         const submissionsSnapshot = await getDocs(submissionsQuery);
-        // ---👇 가져온 데이터에 FirestoreSubmission 타입을 명시해줍니다. ---
-        const originalSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreSubmission));
+        // ---👇 가져온 데이터에 글로벌 Submission 타입을 명시해줍니다. ---
+        const originalSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Submission));
 
         const allQuestionIds = [...new Set(originalSubmissions.flatMap(s => s.questionIds || []))];
         
@@ -101,12 +84,13 @@ export function useMyPageData(): MyPageData {
             return {
                 ...s,
                 mainChapter: s.mainChapter || firstQuestion?.mainChapter || '알 수 없음',
-                subChapter: s.subChapter || firstQuestion?.subChapter || '알 수 없음',
+                subChapter: s.subChapter || firstQuestion?.subChapter || '혼합 학습',
                 isCorrect: isCorrectArray,
             };
         });
 
-        const allIncorrectIds = [...new Set(processedSubmissions.flatMap(s => (s.questionIds || []).filter((id, index) => !s.isCorrect[index])))];
+        // ( ... 나머지 로직은 동일 ... )
+        const allIncorrectIds = [...new Set(processedSubmissions.flatMap(s => (s.questionIds || []).filter((id, index) => !s.isCorrect?.[index])))];
         const incorrectQuestionsData = Array.from(questionsMap.values()).filter(q => allIncorrectIds.includes(q.id));
         
         const submissionDates = [...new Set(processedSubmissions.map(s => format(s.createdAt.toDate(), 'yyyy-MM-dd')))].sort().reverse();
@@ -127,7 +111,7 @@ export function useMyPageData(): MyPageData {
         
         const subChapterStats: { [key: string]: { correct: number, total: number } } = {};
         processedSubmissions.forEach(submission => {
-            if (!submission.subChapter) return;
+            if (!submission.subChapter || !submission.isCorrect) return;
             if (!subChapterStats[submission.subChapter]) {
                 subChapterStats[submission.subChapter] = { correct: 0, total: 0 };
             }

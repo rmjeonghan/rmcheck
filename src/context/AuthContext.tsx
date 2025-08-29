@@ -1,16 +1,16 @@
+// src/context/AuthContext.tsx
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, Suspense } from 'react';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, functions } from '@/firebase';
-import { httpsCallable } from 'firebase/functions';
-import KakaoLoginHandler from '@/components/KakaoLoginHandler'; // ◀ 새로 만든 핸들러
+import { db } from '@/firebase';
+import KakaoLoginHandler from '@/components/KakaoLoginHandler';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  loginWithKakao: () => void;
+  loginWithKakao: () => void; // ◀ 여기에 타입을 추가합니다.
   logout: () => void;
 }
 
@@ -36,8 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
   };
-
-  // ▼▼▼ useSearchParams를 사용하던 useEffect는 KakaoLoginHandler로 이동했습니다. ▼▼▼
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -67,11 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     auth.signOut();
   };
 
+  // ▼▼▼ value 객체에 loginWithKakao를 추가합니다. ▼▼▼
   const value = { user, loading, loginWithKakao, logout };
 
   return (
     <AuthContext.Provider value={value}>
-      {/* ▼▼▼ Suspense로 KakaoLoginHandler를 감싸줍니다. ▼▼▼ */}
       <Suspense fallback={null}>
         <KakaoLoginHandler />
       </Suspense>
