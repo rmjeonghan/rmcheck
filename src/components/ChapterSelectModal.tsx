@@ -1,5 +1,8 @@
 // src/components/ChapterSelectModal.tsx
+'use client';
+
 import { useState, useEffect } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/24/solid';
 
 type ChapterSelectModalProps = {
   onClose: () => void;
@@ -8,7 +11,7 @@ type ChapterSelectModalProps = {
   hideQuestionCount?: boolean;
 };
 
-// 실제 단원 데이터
+// 사용자가 최종적으로 제공한 원본 단원 데이터를 정확히 반영합니다.
 const curriculumData = {
   '통합과학 1': [
     { id: '1-1', name: '과학의 기초', subChapters: ['1-1-1: 시간과 공간', '1-1-2: 기본량과 단위', '1-1-3: 측정과 측정 표준', '1-1-4: 정보와 디지털 기술'] },
@@ -27,116 +30,188 @@ const curriculumData = {
   ],
 };
 
-// 소단원 ID로 이름을 찾기 위한 Map 생성
-const subChapterNameMap = new Map<string, string>();
-Object.values(curriculumData).flat().forEach(chapter => {
-  chapter.subChapters.forEach(sub => {
-    const [id, name] = sub.split(': ');
-    subChapterNameMap.set(id.trim(), name.trim());
-  });
-});
+type CurriculumKey = keyof typeof curriculumData;
 
-
-export default function ChapterSelectModal({ onClose, onComplete, initialSelectedIds = [], hideQuestionCount = false }: ChapterSelectModalProps) {
-  const [openChapter, setOpenChapter] = useState<string | null>(null);
-  // [BUG FIX] useEffect를 제거하고 useState의 초기값으로 initialSelectedIds를 직접 사용
+export default function ChapterSelectModal({
+  onClose,
+  onComplete,
+  initialSelectedIds = [],
+  hideQuestionCount = false,
+}: ChapterSelectModalProps) {
+  // ✅ **수정**: useState의 초기값으로만 initialSelectedIds를 사용합니다.
+  // 이렇게 하면 컴포넌트가 처음 마운트될 때만 초기값이 설정되고,
+  // 이후 부모 컴포넌트의 리렌더링에 의해 상태가 덮어씌워지지 않습니다.
   const [selectedChapters, setSelectedChapters] = useState<string[]>(initialSelectedIds);
-  const [questionCount, setQuestionCount] = useState(30);
-
-  const toggleChapter = (chapterName: string) => {
-    setOpenChapter(openChapter === chapterName ? null : chapterName);
-  };
-
-  const handleChapterChange = (chapterId: string, subChapterIds: string[] = []) => {
-    const isSelected = selectedChapters.includes(chapterId);
-    let newSelected: string[];
-    if (isSelected) {
-      newSelected = selectedChapters.filter(id => id !== chapterId && !subChapterIds.includes(id));
-    } else {
-      newSelected = [...selectedChapters, chapterId, ...subChapterIds];
-    }
-    setSelectedChapters([...new Set(newSelected)]);
-  };
-
-  const handleSubChapterChange = (subChapterId: string, parentId: string) => {
-    let newSelected = selectedChapters.includes(subChapterId)
-      ? selectedChapters.filter(id => id !== subChapterId)
-      : [...selectedChapters, subChapterId];
-    const parent = Object.values(curriculumData).flat().find(c => c.id === parentId);
-    const allSubChapters = parent?.subChapters?.map(s => s.split(':')[0].trim()) || [];
-    const allSubSelected = allSubChapters.every(subId => newSelected.includes(subId));
-    if (allSubSelected) {
-      if (!newSelected.includes(parentId)) newSelected.push(parentId);
-    } else {
-      newSelected = newSelected.filter(id => id !== parentId);
-    }
-    setSelectedChapters(newSelected);
-  };
   
-  const getSelectedSubChapterIds = () => {
-    return selectedChapters.filter(id => id.split('-').length === 3);
+  const [questionCount, setQuestionCount] = useState(30);
+  const [activeTab, setActiveTab] = useState<CurriculumKey>('통합과학 1');
+  const [openChapters, setOpenChapters] = useState<string[]>([]);
+
+  // ❌ **수정**: 무한 루프와 체크박스 오류의 원인이었던 useEffect 훅을 삭제했습니다.
+
+  const toggleChapter = (chapterId: string) => {
+    setOpenChapters(prev =>
+      prev.includes(chapterId) ? prev.filter(id => id !== chapterId) : [...prev, chapterId]
+    );
+  };
+
+  const getSubChapterId = (subChapter: string) => subChapter.split(':')[0].trim();
+  const getSubChapterName = (subChapter: string) => subChapter.split(':')[1].trim();
+
+  const handleSubChapterChange = (subChapterId: string) => {
+    setSelectedChapters(prev =>
+      prev.includes(subChapterId) ? prev.filter(id => id !== subChapterId) : [...prev, subChapterId]
+    );
+  };
+
+  const handleMainChapterChange = (mainChapterId: string, subChapters: string[]) => {
+    const subChapterIds = subChapters.map(getSubChapterId);
+    const allSelected = subChapterIds.every(id => selectedChapters.includes(id));
+    
+    if (allSelected) {
+      setSelectedChapters(prev => prev.filter(id => !subChapterIds.includes(id)));
+    } else {
+      setSelectedChapters(prev => [...new Set([...prev, ...subChapterIds])]);
+    }
+  };
+
+  const getSelectedSubChapterDetails = () => {
+    const details = { unitIds: [] as string[], unitNames: [] as string[] };
+    Object.values(curriculumData).flat().forEach(chapter => {
+      chapter.subChapters.forEach(subChapter => {
+        const subId = getSubChapterId(subChapter);
+        if (selectedChapters.includes(subId)) {
+          details.unitIds.push(subId);
+          details.unitNames.push(getSubChapterName(subChapter));
+        }
+      });
+    });
+    return details;
   };
 
   const handleComplete = () => {
-    const selectedSubIds = getSelectedSubChapterIds();
-    const selectedSubNames = selectedSubIds.map(id => subChapterNameMap.get(id) || '');
-    
-    onComplete({
-      unitIds: selectedSubIds,
-      unitNames: selectedSubNames,
-      count: questionCount,
-    });
+    const { unitIds, unitNames } = getSelectedSubChapterDetails();
+    onComplete({ unitIds, unitNames, count: questionCount });
   };
+  
+  const chaptersForActiveTab = curriculumData[activeTab];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">단원 선택 ({getSelectedSubChapterIds().length}개 선택됨)</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-800">학습 단원 선택</h2>
         </div>
 
-        <div className="flex-grow overflow-y-auto max-h-[60vh]">
-          {Object.entries(curriculumData).map(([subject, chapters]) => (
-            <div key={subject}>
-              <h3 className="p-4 bg-gray-100 text-lg font-semibold sticky top-0">{subject}</h3>
-              <div className="p-4">
-                {chapters.map((chapter) => (
-                  <div key={chapter.id} className="border-b last:border-b-0 py-2">
-                    <div className="flex justify-between items-center">
-                      <label className="flex items-center flex-grow p-2 hover:bg-gray-50 cursor-pointer">
-                        <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" checked={selectedChapters.includes(chapter.id)} onChange={() => handleChapterChange(chapter.id, chapter.subChapters?.map(s => s.split(':')[0].trim()))}/>
-                        <span className="ml-3 font-medium text-lg" onClick={(e) => { e.stopPropagation(); toggleChapter(chapter.name); }}>{chapter.name}</span>
-                      </label>
-                      {chapter.subChapters && (<button onClick={() => toggleChapter(chapter.name)} className="p-2"><svg className={`w-5 h-5 text-gray-500 transition-transform ${openChapter === chapter.name ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg></button>)}
-                    </div>
-                    {openChapter === chapter.name && chapter.subChapters && (
-                      <ul className="pl-12 mt-2 space-y-2">
-                        {chapter.subChapters.map((subChapter) => {
-                          const [subId, subName] = subChapter.split(': ');
-                          return (
-                            <li key={subId}><label className="flex items-center p-2 rounded-md hover:bg-gray-50 cursor-pointer"><input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" checked={selectedChapters.includes(subId.trim())} onChange={() => handleSubChapterChange(subId.trim(), chapter.id)}/><span className="ml-3 text-gray-700">{subName}</span></label></li>
-                          );
-                        })}
-                      </ul>
-                    )}
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
+            {(Object.keys(curriculumData) as CurriculumKey[]).map(tabName => (
+              <button
+                key={tabName}
+                onClick={() => setActiveTab(tabName)}
+                className={`w-full py-2 px-4 text-base font-semibold rounded-md transition-colors duration-300 ${
+                  activeTab === tabName
+                    ? 'bg-white text-blue-600 shadow'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {tabName}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+          {chaptersForActiveTab.map(chapter => {
+            const isChapterOpen = openChapters.includes(chapter.id);
+            const allSubChapters = chapter.subChapters.map(getSubChapterId);
+            const isAllSelected = allSubChapters.every(id => selectedChapters.includes(id));
+            const isPartiallySelected = allSubChapters.some(id => selectedChapters.includes(id)) && !isAllSelected;
+
+            return (
+              <div key={chapter.id} className="border border-gray-200 rounded-lg overflow-hidden transition-shadow hover:shadow-md">
+                <button
+                  onClick={() => toggleChapter(chapter.id)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      checked={isAllSelected}
+                      ref={input => {
+                        if (input) input.indeterminate = isPartiallySelected;
+                      }}
+                      onChange={() => handleMainChapterChange(chapter.id, chapter.subChapters)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="ml-4 text-lg font-semibold text-gray-800">{chapter.name}</span>
                   </div>
-                ))}
+                  <ChevronDownIcon
+                    className={`h-6 w-6 text-gray-500 transition-transform duration-300 ${
+                      isChapterOpen ? 'transform rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                {isChapterOpen && (
+                  <ul className="p-4 bg-white space-y-2 border-t border-gray-200">
+                    {chapter.subChapters.map(subChapter => {
+                      const subId = getSubChapterId(subChapter);
+                      const subName = getSubChapterName(subChapter);
+                      return (
+                        <li key={subId}>
+                          <label className="flex items-center p-2 rounded-md hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={selectedChapters.includes(subId)}
+                              onChange={() => handleSubChapterChange(subId)}
+                            />
+                            <span className="ml-3 text-gray-700">{subName}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div className="p-6 bg-gray-50 border-t space-y-4">
+        <div className="p-6 bg-gray-50 border-t border-gray-200 space-y-4">
           {!hideQuestionCount && (
             <div>
-              <label htmlFor="questionCountRange" className="block text-lg font-semibold mb-2">문항 수: <span className="text-primary font-bold">{questionCount}</span>개</label>
-              <input id="questionCountRange" type="range" min="10" max="50" step="5" value={questionCount} onChange={(e) => setQuestionCount(parseInt(e.target.value, 10))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+              <label htmlFor="questionCountRange" className="block text-lg font-semibold mb-2 text-gray-800">
+                문항 수: <span className="text-blue-600 font-bold">{questionCount}</span>개
+              </label>
+              <input
+                id="questionCountRange"
+                type="range"
+                min="10"
+                max="50"
+                step="5"
+                value={questionCount}
+                onChange={(e) => setQuestionCount(parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
             </div>
           )}
-          <button className="w-full px-6 py-3 bg-primary text-white font-bold text-lg rounded-lg hover:bg-primary-hover disabled:bg-gray-400" disabled={getSelectedSubChapterIds().length === 0} onClick={handleComplete}>
-            선택 완료
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={onClose}
+              className="w-full px-6 py-3 bg-gray-200 text-gray-700 font-bold text-lg rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleComplete}
+              className="w-full px-6 py-3 bg-blue-600 text-white font-bold text-lg rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              disabled={getSelectedSubChapterDetails().unitIds.length === 0}
+            >
+              학습 시작하기
+            </button>
+          </div>
         </div>
       </div>
     </div>
