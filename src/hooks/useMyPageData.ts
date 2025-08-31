@@ -9,7 +9,7 @@ import { differenceInCalendarDays, parseISO, format } from 'date-fns';
 import { Submission, Question, LearningPlan } from '@/types'; 
 
 export interface MyPageData {
-  submissions: Submission[];
+  submissions: (Submission & { isCorrect: boolean[] })[];
   incorrectQuestions: Question[]; 
   totalAnsweredCount: number;
   totalIncorrectCount: number;
@@ -18,6 +18,7 @@ export interface MyPageData {
   weakestChapter: string | null;
   loading: boolean;
   plan: LearningPlan | null;
+  questionsMap: Map<string, Question>;
 }
 
 export function useMyPageData(): MyPageData {
@@ -31,6 +32,7 @@ export function useMyPageData(): MyPageData {
     strongestChapter: null,
     weakestChapter: null,
     plan: null,
+    questionsMap: new Map(),
   });
   const [loading, setLoading] = useState(true);
 
@@ -71,7 +73,7 @@ export function useMyPageData(): MyPageData {
             }
         }
         
-        const processedSubmissions: Submission[] = originalSubmissions.map(s => {
+        const processedSubmissions = originalSubmissions.map(s => {
             const firstQuestion = s.questionIds ? questionsMap.get(s.questionIds[0]) : null;
             const isCorrectArray = (s.questionIds || []).map((qId: string, index: number) => {
                 const question = questionsMap.get(qId);
@@ -97,12 +99,12 @@ export function useMyPageData(): MyPageData {
         let streak = 0;
         if (submissionDates.length > 0) {
             const today = new Date();
-            const lastDate = parseISO(submissionDates[0]);
+            const lastDate = parseISO(submissionDates[0].slice(0, 10)); // Convert to ISO format before parsing
             if (differenceInCalendarDays(today, lastDate) <= 1) {
                 streak = 1;
                 for (let i = 0; i < submissionDates.length - 1; i++) {
-                    const current = parseISO(submissionDates[i]);
-                    const previous = parseISO(submissionDates[i + 1]);
+                    const current = parseISO(submissionDates[i].slice(0, 10));
+                    const previous = parseISO(submissionDates[i + 1].slice(0, 10));
                     if (differenceInCalendarDays(current, previous) === 1) streak++;
                     else break;
                 }
@@ -143,7 +145,7 @@ export function useMyPageData(): MyPageData {
         const fetchedPlan = planDoc.exists() ? planDoc.data() as LearningPlan : null;
         
         setData({
-          submissions: processedSubmissions,
+          submissions: processedSubmissions as (Submission & { isCorrect: boolean[] })[],
           incorrectQuestions: incorrectQuestionsData,
           totalAnsweredCount: allQuestionIds.length,
           totalIncorrectCount: uniqueIncorrectQuestionIds.length,
@@ -151,6 +153,7 @@ export function useMyPageData(): MyPageData {
           strongestChapter: strongest,
           weakestChapter: weakest,
           plan: fetchedPlan,
+          questionsMap: questionsMap,
         });
 
       } catch (error) {

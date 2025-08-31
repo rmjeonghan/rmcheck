@@ -6,13 +6,14 @@ import { add, format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 // ▼▼▼ 새로 만든 NewChapterSelectModal을 import 합니다. ▼▼▼
 import NewChapterSelectModal from './NewChapterSelectModal';
-import { WeeklyPlan, PlanToSave } from '@/types';
+import { WeeklyPlan, PlanToSave, LearningPlan } from '@/types';
 import { X, Calendar, Repeat, BookOpen, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
 
 type LearningPlanSetupProps = {
   onClose: () => void;
   onSave: (plan: PlanToSave) => void;
-  existingPlan?: any;
+  existingPlan?: LearningPlan;
 };
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -21,15 +22,16 @@ const DEFAULT_DAYS_BY_FREQ: { [key: number]: number[] } = {
   5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6], 7: [0, 1, 2, 3, 4, 5, 6],
 };
 
-const safeConvertToDate = (dateSource: any): Date | null => {
+const safeConvertToDate = (dateSource: Timestamp | Date | null): Date | null => {
   if (!dateSource) return null;
-  if (typeof dateSource.toDate === 'function') return dateSource.toDate();
   if (dateSource instanceof Date) return dateSource;
+  if (dateSource && typeof (dateSource as Timestamp).toDate === 'function') {
+      return (dateSource as Timestamp).toDate();
+  }
   return null;
 };
 
 export default function LearningPlanSetup({ onClose, onSave, existingPlan }: LearningPlanSetupProps) {
-  const [startDate, setStartDate] = useState(new Date());
   const [totalWeeks, setTotalWeeks] = useState(4);
   const [weeklyPlans, setWeeklyPlans] = useState<WeeklyPlan[]>([]);
   
@@ -39,9 +41,15 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
 
   useEffect(() => {
     if (existingPlan?.weeklyPlans) {
-      setStartDate(safeConvertToDate(existingPlan.startDate) || new Date());
       setTotalWeeks(existingPlan.weeklyPlans.length);
-      setWeeklyPlans(existingPlan.weeklyPlans);
+      setWeeklyPlans(existingPlan.weeklyPlans.map((plan, index) => ({
+        week: index + 1,
+        sessionsPerWeek: plan.sessionsPerWeek,
+        // 기존 코드에 studyDays와 unitNames가 없으므로 기본값 설정
+        studyDays: DEFAULT_DAYS_BY_FREQ[plan.sessionsPerWeek] || [],
+        unitIds: plan.targetChapterIds || [],
+        unitNames: [], // 이름은 따로 가져와야 하므로 빈 배열로 초기화
+      })));
     } else {
       const initialPlans = Array.from({ length: 4 }, (_, i) => ({
         week: i + 1, sessionsPerWeek: 3, studyDays: DEFAULT_DAYS_BY_FREQ[3],
@@ -80,17 +88,42 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
     setIsChapterModalOpen(true);
   };
   
-  const handleUnitsSelected = ({ unitIds, unitNames }: { unitIds: string[], unitNames: string[] }) => {
+  const handleUnitsSelected = (selectedUnits: { id: string; name: string }[]) => {
     if (editingWeekIndex !== null) {
-      updateWeeklyPlan(editingWeekIndex, { unitIds, unitNames });
+      updateWeeklyPlan(editingWeekIndex, { unitIds: selectedUnits.map(u => u.id), unitNames: selectedUnits.map(u => u.name) });
     }
     setIsChapterModalOpen(false);
     setEditingWeekIndex(null);
   };
 
-  const handleSave = () => onSave({ startDate, weeklyPlans });
+  const handleSave = () => {
+    const planToSave: PlanToSave = {
+      userId: "", // userId는 page.tsx에서 추가
+      weeklyPlans: weeklyPlans.map(plan => ({
+        sessionsPerWeek: plan.sessionsPerWeek,
+        targetChapterIds: plan.unitIds
+      })),
+    };
+    onSave(planToSave);
+  };
   
-  const endDate = useMemo(() => add(startDate, { weeks: totalWeeks, days: -1 }), [startDate, totalWeeks]);
+  const addWeek = () => {
+    setWeeklyPlans([...weeklyPlans, { week: weeklyPlans.length + 1, sessionsPerWeek: 3, studyDays: DEFAULT_DAYS_BY_FREQ[3], unitIds: [], unitNames: [] }]);
+  };
+  
+  const removeWeek = (index: number) => {
+    setWeeklyPlans(weeklyPlans.filter((_, i) => i !== index));
+  };
+  
+  const startDate = useMemo(() => existingPlan ? safeConvertToDate(existingPlan.createdAt) : new Date(), [existingPlan]);
+
+  const currentPlan = weeklyPlans[editingWeekIndex !== null ? editingWeekIndex : 0];
+
+  const endDate = useMemo(() => {
+    const planStartDate = startDate;
+    if (!planStartDate) return null;
+    return add(planStartDate, { weeks: totalWeeks, days: -1 });
+  }, [totalWeeks, startDate]);
 
   const textAnimationVariants = {
     enter: (direction: number) => ({ y: direction > 0 ? 15 : -15, opacity: 0 }),
@@ -98,7 +131,6 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
     exit: (direction: number) => ({ y: direction < 0 ? 15 : -15, opacity: 0 }),
   };
 
-  // initialSelectedIds 변수 선언 및 초기화
   const initialSelectedIds = useMemo(() => {
     if (editingWeekIndex !== null && weeklyPlans[editingWeekIndex]) {
       return weeklyPlans[editingWeekIndex].unitIds;
@@ -132,11 +164,11 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
               </div>
               <div className="mt-4 p-4 bg-white rounded-xl text-center shadow-sm h-16 flex items-center justify-center">
                 <AnimatePresence mode="wait">
-                  <motion.p key={endDate.toISOString()} variants={textAnimationVariants} custom={direction} initial="enter" animate="center" exit="exit"
+                  <motion.p key={endDate?.toISOString() || 'no-date'} variants={textAnimationVariants} custom={direction} initial="enter" animate="center" exit="exit"
                     transition={{ type: 'spring', stiffness: 200, damping: 20, duration: 0.1 }}
                     className="font-bold text-lg text-gray-800 flex items-center justify-center gap-2">
                     <Calendar size={20} className="text-blue-500" />
-                    {format(startDate, 'yyyy.MM.dd')} ~ {format(endDate, 'yyyy.MM.dd')}
+                    {startDate && endDate ? `${format(startDate, 'yyyy.MM.dd')} ~ ${format(endDate, 'yyyy.MM.dd')}` : '날짜를 불러올 수 없습니다.'}
                   </motion.p>
                 </AnimatePresence>
               </div>
@@ -216,12 +248,11 @@ export default function LearningPlanSetup({ onClose, onSave, existingPlan }: Lea
         </motion.div>
       </div>
 
-      {/* ▼▼▼ 기존 ChapterSelectModal을 새로 만든 NewChapterSelectModal로 교체합니다. ▼▼▼ */}
       {isChapterModalOpen && (
         <NewChapterSelectModal
           onClose={() => setIsChapterModalOpen(false)}
           onComplete={handleUnitsSelected}
-          initialSelectedIds={initialSelectedIds} // useMemo로 정의된 initialSelectedIds 사용
+          initialSelectedIds={initialSelectedIds}
         />
       )}
     </>

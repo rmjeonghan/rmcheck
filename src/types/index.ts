@@ -19,7 +19,7 @@ export interface Question {
 export interface Submission {
   id: string;
   userId: string;
-  examId: string;
+  examId?: string;
   questionIds: string[];
   answers: number[];
   incorrectQuestionIds: string[];
@@ -28,6 +28,9 @@ export interface Submission {
   subChapter?: string;
   quizMode?: 'new' | 'mixed' | 'review_all' | 'review_incorrect';
   createdAt: Timestamp;
+  // useMyPageData 훅에서 동적으로 추가되는 필드
+  isCorrect?: boolean[];
+  assignmentId?: string;
 }
 
 
@@ -41,6 +44,9 @@ export interface StudentData {
   photoURL?: string;
   isAcademyMember: boolean;
   academyId?: string;
+  // DB 스크린샷에서 확인된 추가 필드
+  academyName?: string;
+  status?: 'pending' | 'active';
 }
 
 // 아카데미 데이터 타입
@@ -58,6 +64,9 @@ export interface AcademyAssignment {
   questions: string[];
   dueDate: Timestamp;
   status: 'assigned' | 'completed' | 'overdue';
+  // DB 스크린샷에서 확인된 추가 필드
+  assignedUnitIds: string[];
+  week: number;
 }
 
 // 학습 계획 타입 (새로 추가)
@@ -77,4 +86,13 @@ export interface PlanToSave {
     sessionsPerWeek: number;
     targetChapterIds: string[];
   }>;
+}
+
+// LearningPlanSetup에서 사용되는 주간 계획 타입
+export interface WeeklyPlan {
+  week: number;
+  sessionsPerWeek: number;
+  studyDays: number[];
+  unitIds: string[];
+  unitNames: string[];
 }

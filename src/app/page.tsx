@@ -34,7 +34,7 @@ type QuizMode = 'new' | 'mixed' | 'review_all' | 'review_incorrect';
 
 export default function Home() {
   const { user } = useAuth();
-  const { submissions, totalAnsweredCount, studyStreak, strongestChapter, weakestChapter, loading: dataLoading } = useMyPageData();
+  const { submissions, totalAnsweredCount, studyStreak, strongestChapter, weakestChapter, loading: dataLoading, plan, questionsMap } = useMyPageData();
   
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [allAssignments, setAllAssignments] = useState<AcademyAssignment[]>([]);
@@ -276,8 +276,8 @@ export default function Home() {
         </>
       )}
       
-      {learningPlan ? (
-        <CurrentPlanWidget plan={learningPlan} submissions={submissions} onEditClick={() => setIsSetupModalOpen(true)} onStartRecommended={() => startQuiz(recommendedMode)} />
+      {plan ? (
+        <CurrentPlanWidget plan={plan} submissions={submissions} questionsMap={questionsMap} onEditClick={() => setIsSetupModalOpen(true)} onStartRecommended={() => startQuiz(recommendedMode)} />
       ) : (
         <SetupPromptWidget onSetupClick={() => setIsSetupModalOpen(true)} />
       )}
@@ -302,7 +302,7 @@ export default function Home() {
       }
 
       {isReviewModalOpen && <ReviewModeModal onClose={() => setIsReviewModalOpen(false)} onSelectMode={handleReviewModeSelect} />}
-      {isSetupModalOpen && <LearningPlanSetup onClose={() => setIsSetupModalOpen(false)} onSave={handleSavePlan} existingPlan={learningPlan} />}
+      {isSetupModalOpen && <LearningPlanSetup onClose={() => setIsSetupModalOpen(false)} onSave={handleSavePlan} existingPlan={plan} />}
     </main>
   );
 }
