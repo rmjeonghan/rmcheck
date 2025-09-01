@@ -1,42 +1,53 @@
 // src/components/MyReportTabs.tsx
-import React from 'react';
-import { motion } from 'framer-motion';
+"use client";
+import { useState } from 'react';
+import MyPageDashboard from './MyPageDashboard';
+import LearningAnalysis from './LearningAnalysis';
+import PreviousHistory from './PreviousHistory';
+import IncorrectNoteTab from './IncorrectNoteTab';
+import AchievementsTab from './AchievementsTab'; // --- 📍 1. 도전 과제 탭 import ---
+import { BarChart, LayoutDashboard, NotebookText, Trophy, History } from 'lucide-react';
 
-interface TabItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-}
+const MyReportTabs = (props: any) => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  const tabs = [
+    { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
+    { id: 'analysis', label: '학습 분석', icon: BarChart },
+    { id: 'history', label: '이전 학습 기록', icon: History },
+    { id: 'incorrect', label: '오답 노트', icon: NotebookText },
+    { id: 'achievements', label: '도전 과제', icon: Trophy },
+  ];
 
-interface MyReportTabsProps {
-  tabs: TabItem[];
-  activeTab: string;
-  setActiveTab: (tabId: string) => void;
-}
-
-const MyReportTabs: React.FC<MyReportTabsProps> = ({ tabs, activeTab, setActiveTab }) => {
   return (
-    <div className="relative z-10 flex border-b border-gray-200 bg-white rounded-t-2xl overflow-x-auto no-scrollbar">
-      {tabs.map((tab) => (
-        <motion.button
-          key={tab.id}
-          onClick={() => setActiveTab(tab.id)}
-          className={`relative flex-shrink-0 py-3 px-6 md:px-8 text-sm md:text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ease-in-out
-            ${activeTab === tab.id ? 'text-blue-600' : 'text-gray-500 hover:text-blue-500'}`
-          }
-          whileHover={{ y: -2 }}
-          whileTap={{ y: 0 }}
-        >
-          {tab.icon}
-          {tab.label}
-          {activeTab === tab.id && (
-            <motion.div
-              layoutId="my-report-tab-underline"
-              className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500 rounded-full"
-            />
-          )}
-        </motion.button>
-      ))}
+    <div>
+      <div className="mb-6 border-b">
+        <nav className="flex space-x-1 sm:space-x-4 overflow-x-auto">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-shrink-0 flex items-center space-x-2 px-3 sm:px-4 py-3 font-semibold whitespace-nowrap transition-colors ${
+                activeTab === tab.id
+                  ? 'border-b-2 border-indigo-500 text-indigo-600'
+                  : 'text-slate-500 hover:text-indigo-500'
+              }`}
+            >
+              <tab.icon className="w-5 h-5" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div>
+        {activeTab === 'dashboard' && <MyPageDashboard stats={props.stats} />}
+        {activeTab === 'analysis' && <LearningAnalysis analysisData={props.analysisData} />}
+        {activeTab === 'history' && <PreviousHistory submissions={props.submissions} questions={props.questions} />}
+        {activeTab === 'incorrect' && <IncorrectNoteTab submissions={props.submissions} questions={props.questions} />}
+        {/* --- 📍 2. 도전 과제 탭이 선택되었을 때 컴포넌트를 보여주도록 연결 --- */}
+        {activeTab === 'achievements' && <AchievementsTab stats={props.stats} submissions={props.submissions} />}
+      </div>
     </div>
   );
 };

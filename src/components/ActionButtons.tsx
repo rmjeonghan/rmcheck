@@ -1,89 +1,102 @@
-// src/components/ActionButtons.tsx
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { Sparkles, Layers, History, Star } from 'lucide-react';
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Sparkles, Combine, ListRestart, LucideProps } from "lucide-react";
+import React from "react";
+import { QuizStartParams } from "@/app/page";
+import ChapterSelectModal from "./ChapterSelectModal";
+import ReviewModeModal from "./ReviewModeModal";
 
-type QuizMode = 'new' | 'mixed' | 'review_all' | 'review_incorrect';
+type QuizMode = NonNullable<QuizStartParams>['mode'];
 
-type ActionButtonsProps = {
-  recommendedMode: 'new' | 'mixed';
-  onStartNewQuiz: () => void;
-  onStartMixedQuiz: () => void;
-  onStartReview: () => void;
-};
+interface ActionButtonsProps {
+  onStartQuiz: (params: NonNullable<QuizStartParams>) => void;
+}
 
-export default function ActionButtons({
-  recommendedMode,
-  onStartNewQuiz,
-  onStartMixedQuiz,
-  onStartReview,
-}: ActionButtonsProps) {
+const ActionButtons = ({ onStartQuiz }: ActionButtonsProps) => {
+  const [isChapterModalOpen, setChapterModalOpen] = useState(false);
+  const [isReviewModalOpen, setReviewModalOpen] = useState(false);
+  const [currentMode, setCurrentMode] = useState<QuizMode>('new');
 
-  const buttons = [
-    {
-      id: 'new',
-      icon: <Sparkles size={24} />,
-      title: '신규 문항',
-      description: '새로운 문제를 풀어보세요',
-      onClick: onStartNewQuiz,
-    },
-    {
-      id: 'mixed',
-      icon: <Layers size={24} />,
-      title: '신규+복습',
-      description: '복습과 새 문제를 함께',
-      onClick: onStartMixedQuiz,
-    },
-    {
-      id: 'review_all', // 자유복습은 review_all 모드와 연결
-      icon: <History size={24} />,
-      title: '자유 복습',
-      description: '틀렸던 문제를 다시 풀어요',
-      onClick: onStartReview,
-    },
-  ];
+  const handleNewQuizClick = (mode: 'new' | 'new_review') => {
+    setCurrentMode(mode);
+    setChapterModalOpen(true);
+  };
+
+  const handleReviewQuizClick = () => {
+    setReviewModalOpen(true);
+  };
+
+  const handleChapterSelectConfirm = (selectedIds: string[], questionCount: number) => {
+    setChapterModalOpen(false);
+    onStartQuiz({ mode: currentMode, unitIds: selectedIds, questionCount });
+  };
+
+  const handleReviewModeSelect = (mode: 'review_all' | 'review_incorrect') => {
+    setReviewModalOpen(false);
+    onStartQuiz({ mode, unitIds: [], questionCount: 30 });
+  };
 
   return (
-    <motion.div
-      className="bg-white rounded-2xl shadow-lg p-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <h3 className="text-xl font-bold text-gray-800 mb-4">바로 학습 시작</h3>
-      <div className="space-y-3">
-        {buttons.map((btn) => {
-          const isRecommended = btn.id === recommendedMode;
-          return (
-            <motion.button
-              key={btn.id}
-              onClick={btn.onClick}
-              className={`relative w-full flex items-center p-4 rounded-xl text-left transition-all duration-300 transform
-                ${isRecommended 
-                  ? 'bg-blue-500 text-white shadow-blue-200 shadow-lg' 
-                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`
-              }
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {isRecommended && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 bg-white text-blue-500 text-xs font-bold px-2 py-0.5 rounded-full">
-                  <Star size={12} fill="currentColor" />
-                  <span>추천</span>
-                </div>
-              )}
-              <div className={`mr-4 p-2 rounded-lg ${isRecommended ? 'bg-blue-400' : 'bg-white'}`}>
-                {btn.icon}
-              </div>
-              <div>
-                <p className="font-bold">{btn.title}</p>
-                <p className={`text-sm ${isRecommended ? 'text-blue-100' : 'text-gray-500'}`}>{btn.description}</p>
-              </div>
-            </motion.button>
-          );
-        })}
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ActionButton
+          label="신규 문항"
+          icon={Sparkles}
+          color="from-blue-500 to-blue-400"
+          onClick={() => handleNewQuizClick('new')}
+        />
+        <ActionButton
+          label="신규+복습"
+          icon={Combine}
+          color="from-purple-500 to-purple-400"
+          onClick={() => handleNewQuizClick('new_review')}
+        />
+        <ActionButton
+          label="자유 복습"
+          icon={ListRestart}
+          color="from-green-500 to-green-400"
+          onClick={handleReviewQuizClick}
+        />
       </div>
-    </motion.div>
+
+      <ChapterSelectModal
+        isOpen={isChapterModalOpen}
+        onClose={() => setChapterModalOpen(false)}
+        onConfirm={handleChapterSelectConfirm}
+        initialSelectedIds={[]}
+        showQuestionCountSlider={true}
+      />
+      <ReviewModeModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        onSelect={handleReviewModeSelect}
+      />
+    </>
   );
+};
+
+
+// --- 📍 타입 정의 추가 ---
+interface ActionButtonProps {
+    label: string;
+    icon: React.ComponentType<LucideProps>;
+    color: string;
+    onClick: () => void;
 }
+
+// 재사용성을 위한 버튼 컴포넌트
+const ActionButton = ({ label, icon: Icon, color, onClick }: ActionButtonProps) => (
+  <motion.button
+    onClick={onClick}
+    whileHover={{ scale: 1.05, y: -5 }}
+    whileTap={{ scale: 0.95 }}
+    className={`flex flex-col items-center justify-center p-6 rounded-xl text-white font-bold text-lg shadow-lg bg-gradient-to-br ${color}`}
+  >
+    <Icon className="w-8 h-8 mb-2" />
+    {label}
+  </motion.button>
+);
+
+export default ActionButtons;

@@ -1,170 +1,158 @@
-// src/components/QuizView.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { Question, Submission, QuizMode } from '@/types';
+import QuizHeader from './QuizHeader';
+import QuestionCard from './QuestionCard';
+import { useQuiz } from '@/hooks/useQuiz';
+import LoadingSpinner from './LoadingSpinner';
+// --- 📍 1. Firestore 트랜잭션 관련 함수들을 import 합니다 ---
+import { doc, collection, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { db } from '@/firebase/config';
+import { useAuth } from '@/context/AuthContext';
 
-type QuizViewProps = {
-  questions: any[];
-  onQuizComplete: (answers: (number | null)[]) => void;
+interface QuizViewProps {
+  mode: QuizMode;
+  questionCount: number;
+  unitIds: string[];
+  mainChapter?: string;
+  onExit: () => void;
+  onQuizComplete: (submission: Submission, questions: Question[]) => void;
+}
+
+const questionVariants = {
+    enter: { y: 300, opacity: 0, scale: 0.95 },
+    center: { y: 0, opacity: 1, scale: 1 },
+    exit: { y: -300, opacity: 0, scale: 0.95 },
 };
 
-export default function QuizView({ questions, onQuizComplete }: QuizViewProps) {
+const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizComplete }: QuizViewProps) => {
+  const { user } = useAuth();
+  const { questions, isLoading, error, fetchQuestions } = useQuiz();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<(number | null)[]>(
-    Array(questions.length).fill(null)
-  );
-  const [direction, setDirection] = useState(1);
+  const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentQuestion = questions[currentQuestionIndex];
+  useEffect(() => {
+    if (questions.length > 0) {
+      setUserAnswers(Array(questions.length).fill(null));
+    }
+  }, [questions]);
+  
+  useEffect(() => {
+    fetchQuestions(mode, questionCount, unitIds);
+  }, [mode, questionCount, unitIds, fetchQuestions]);
 
-  const handleAnswerSelect = (choiceIndex: number) => {
+  const handleNextQuestion = (choiceIndex: number) => {
     const newAnswers = [...userAnswers];
     newAnswers[currentQuestionIndex] = choiceIndex;
     setUserAnswers(newAnswers);
+
+    const isLastQuestion = currentQuestionIndex === questions.length - 1;
+
+    setTimeout(() => {
+      if (isLastQuestion) {
+        handleSubmit(newAnswers);
+      } else {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }
+    }, 1200);
   };
 
-  const goToNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setDirection(1);
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
+  // --- 📍 2. handleSubmit 함수를 트랜잭션을 사용하는 새 로직으로 교체합니다 ---
+  const handleSubmit = async (finalAnswers: (number | null)[]) => {
+      if (!user || isSubmitting) return;
+      setIsSubmitting(true);
+
+      const correctAnswers = finalAnswers.filter((answer, index) => questions[index].answerIndex === answer).length;
+      const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+
+      const submissionData: Omit<Submission, 'id'> = {
+          userId: user.uid,
+          questionIds: questions.map(q => q.id),
+          answers: finalAnswers,
+          score,
+          mainChapter: mainChapter || '종합',
+          createdAt: serverTimestamp(),
+          isDeleted: false,
+      };
+
+      try {
+          let submissionId = '';
+          // Firestore 트랜잭션을 사용하여 데이터 일관성 보장
+          await runTransaction(db, async (transaction) => {
+              // 1. submission 생성
+              const submissionRef = doc(collection(db, 'submissions'));
+              submissionId = submissionRef.id; // 생성된 ID를 저장
+              transaction.set(submissionRef, submissionData);
+
+              // 2. userQuestionStats 업데이트
+              for (let i = 0; i < questions.length; i++) {
+                  const q = questions[i];
+                  const userAnswer = finalAnswers[i];
+                  const isCorrect = q.answerIndex === userAnswer;
+                  
+                  const statRef = doc(db, 'userQuestionStats', `${user.uid}_${q.id}`);
+                  const statDoc = await transaction.get(statRef);
+
+                  if (statDoc.exists()) {
+                      const oldHistory = statDoc.data().history || [];
+                      transaction.update(statRef, {
+                          history: [...oldHistory, isCorrect],
+                          isCorrect: isCorrect,
+                          lastAnswered: serverTimestamp(),
+                      });
+                  } else {
+                      transaction.set(statRef, {
+                          userId: user.uid,
+                          questionId: q.id,
+                          history: [isCorrect],
+                          isCorrect: isCorrect,
+                          lastAnswered: serverTimestamp(),
+                      });
+                  }
+              }
+          });
+          
+          onQuizComplete({ id: submissionId, ...submissionData } as Submission, questions);
+
+      } catch (error) {
+          console.error("결과 저장 오류:", error);
+          onExit();
+      }
   };
 
-  const goToPrev = () => {
-    if (currentQuestionIndex > 0) {
-      setDirection(-1);
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
-  
-  const questionVariants = {
-    enter: (direction: number) => ({
-      y: direction > 0 ? 500 : -500,
-      opacity: 0,
-      scale: 0.9,
-    }),
-    center: {
-      zIndex: 1,
-      y: 0,
-      opacity: 1,
-      scale: 1,
-    },
-    exit: (direction: number) => ({
-      zIndex: 0,
-      y: direction < 0 ? 500 : -500,
-      opacity: 0,
-      scale: 0.9,
-    }),
-  };
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <div className="flex items-center justify-center min-h-screen text-red-500 p-8 text-center">{error}</div>;
+  if (questions.length === 0 && !isLoading) return <div className="flex items-center justify-center min-h-screen text-slate-500">생성된 문제가 없습니다.</div>;
 
-  if (!currentQuestion) {
-    return <div>문제를 불러오는 데 실패했습니다.</div>;
-  }
-
-  const choicesWithIdk = [...currentQuestion.choices, '모르겠음'];
-  const progressPercentage = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const currentQuestion = questions[currentQuestionIndex];
 
   return (
-    <div className="relative min-h-screen bg-slate-50 w-full flex flex-col items-center justify-center p-4 overflow-hidden">
-      
-      <motion.button
-        onClick={goToPrev}
-        disabled={currentQuestionIndex === 0}
-        className="absolute top-1/2 left-4 md:left-8 -translate-y-1/2 z-20 bg-white/70 backdrop-blur-sm p-3 rounded-full shadow-lg hover:bg-white disabled:opacity-0 disabled:cursor-not-allowed"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        <ArrowLeft className="text-gray-700" size={24} />
-      </motion.button>
-
-      {currentQuestionIndex < questions.length - 1 && (
-         <motion.button
-            onClick={goToNext}
-            className="absolute top-1/2 right-4 md:right-8 -translate-y-1/2 z-20 bg-white/70 backdrop-blur-sm p-3 rounded-full shadow-lg hover:bg-white"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <ArrowRight className="text-gray-700" size={24} />
-          </motion.button>
-      )}
-
-      <div className="w-full max-w-xl flex flex-col">
-        <div className="mb-4">
-          <div className="flex justify-between items-center text-sm font-semibold text-gray-500 mb-1">
-            <span>Progress</span>
-            <span>{currentQuestionIndex + 1} / {questions.length}</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <motion.div 
-              className="bg-blue-500 h-2.5 rounded-full"
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ duration: 0.5, ease: 'easeInOut' }}
-            />
-          </div>
-        </div>
-
-        <div className="relative h-[550px]">
-          <AnimatePresence initial={false} custom={direction}>
-            <motion.div
-              key={currentQuestionIndex}
-              custom={direction}
-              variants={questionVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                y: { type: "spring", stiffness: 300, damping: 30 },
-                opacity: { duration: 0.2 },
-              }}
-              // ▼▼▼ 핵심 수정: 카드 자체에 스크롤 기능을 부여합니다 ▼▼▼
-              className="absolute inset-0 bg-white rounded-2xl shadow-xl p-6 md:p-8 overflow-y-auto"
-            >
-              {/* ▼▼▼ 핵심 수정: 글자 크기를 줄입니다 ▼▼▼ */}
-              <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-6 leading-relaxed whitespace-pre-wrap">
-                <span className="text-blue-500 mr-2">Q{currentQuestionIndex + 1}.</span>
-                {currentQuestion.questionText}
-              </h2>
-
-              <div className="space-y-3">
-                {choicesWithIdk.map((choice, index) => (
-                  <motion.button
-                    key={index}
-                    onClick={() => handleAnswerSelect(index)}
-                    className={`w-full text-left p-4 rounded-lg border-2 text-base md:text-lg transition-all duration-200
-                      ${userAnswers[currentQuestionIndex] === index 
-                        ? 'bg-blue-500 border-blue-600 text-white font-bold' 
-                        : 'bg-white hover:bg-blue-50 hover:border-blue-300'}`
-                    }
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {index + 1}. {choice}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
+    <div className="flex flex-col min-h-screen bg-slate-100 w-full overflow-hidden">
+        <QuizHeader current={currentQuestionIndex + 1} total={questions.length} onExit={onExit} />
         
-        {currentQuestionIndex === questions.length - 1 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-6 flex justify-center"
-          >
-            <button 
-              onClick={() => onQuizComplete(userAnswers)}
-              className="px-8 py-3 bg-green-500 text-white font-semibold rounded-full shadow-lg shadow-green-200 hover:bg-green-600 flex items-center gap-2"
-            >
-              <CheckCircle size={20} />
-              제출하기
-            </button>
-          </motion.div>
-        )}
-      </div>
+        <main className="relative flex-grow w-full flex items-center justify-center p-4">
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={currentQuestionIndex}
+                    variants={questionVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ y: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
+                    className="w-full max-w-2xl"
+                >
+                    <QuestionCard
+                        question={currentQuestion}
+                        onAnswerSelect={handleNextQuestion}
+                    />
+                </motion.div>
+            </AnimatePresence>
+        </main>
     </div>
   );
-}
+};
+
+export default QuizView;

@@ -1,89 +1,80 @@
-'use client';
-
+// src/components/JoinAcademyModal.tsx
+"use client";
 import { useState, useEffect } from 'react';
-import { db } from '@/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import LoadingSpinner from './LoadingSpinner';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/firebase/config';
+import { useAuth } from '@/context/AuthContext';
+import toast from 'react-hot-toast';
 
-type JoinAcademyModalProps = {
-  onClose: () => void;
-  onConfirm: (academyName: string) => void;
-};
-
-interface Academy {
-  id: string;
-  name: string;
-}
-
-export default function JoinAcademyModal({ onClose, onConfirm }: JoinAcademyModalProps) {
-  const [academies, setAcademies] = useState<Academy[]>([]);
+const JoinAcademyModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+  const { user } = useAuth();
+  const [academies, setAcademies] = useState<{ id: string, name: string }[]>([]);
   const [selectedAcademy, setSelectedAcademy] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchAcademies = async () => {
-      try {
-        const q = query(collection(db, 'academies'), where('isDeleted', '!=', true), orderBy('name'));
-        const querySnapshot = await getDocs(q);
-        const academyList = querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-        setAcademies(academyList);
-      } catch (error) {
-        console.error("학원 목록을 불러오는 데 실패했습니다:", error);
-      } finally {
-        setLoading(false);
-      }
+      const snapshot = await getDocs(collection(db, 'academies'));
+      const academyList = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+      setAcademies(academyList);
     };
-    fetchAcademies();
-  }, []);
+    if (isOpen) {
+      fetchAcademies();
+    }
+  }, [isOpen]);
 
-  const handleConfirm = () => {
-    if (selectedAcademy) {
-      onConfirm(selectedAcademy);
+  const handleSubmit = async () => {
+    if (!user || !selectedAcademy) {
+      toast.error("학원을 선택해주세요.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const studentRef = doc(db, 'students', user.uid);
+      await updateDoc(studentRef, {
+        academyName: selectedAcademy,
+        status: 'pending', // 관리자 승인을 위해 'pending' 상태로 변경
+      });
+      toast.success(`${selectedAcademy}에 가입을 요청했습니다!`);
+      onClose();
+    } catch (error) {
+      toast.error("가입 요청 중 오류가 발생했습니다.");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">학원 가입 요청</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-        </div>
-        <div className="p-6">
-          {loading ? (
-            <LoadingSpinner />
-          ) : (
-            <div>
-              <label htmlFor="academy-select" className="block text-sm font-medium text-gray-700 mb-2">
-                소속된 학원을 선택해주세요.
-              </label>
-              <select
-                id="academy-select"
-                value={selectedAcademy}
-                onChange={(e) => setSelectedAcademy(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-              >
-                <option value="">학원 선택...</option>
-                {academies.map(academy => (
-                  <option key={academy.id} value={academy.name}>{academy.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-        <div className="p-4 bg-gray-50 border-t flex justify-end space-x-2">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">
-            취소
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!selectedAcademy || loading}
-            className="px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover disabled:bg-gray-400"
-          >
-            가입 요청
-          </button>
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div /* ... 모달 배경 ... */>
+          <motion.div /* ... 모달 컨텐츠 ... */>
+            <h2 className="text-xl font-bold mb-4">학원 등록하기</h2>
+            <select
+              value={selectedAcademy}
+              onChange={(e) => setSelectedAcademy(e.target.value)}
+              className="w-full p-3 border rounded-lg mb-4"
+            >
+              <option value="">학원을 선택하세요</option>
+              {academies.map(academy => (
+                <option key={academy.id} value={academy.name}>{academy.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg disabled:bg-indigo-300"
+            >
+              {isLoading ? '요청 중...' : '가입 요청하기'}
+            </button>
+            <button onClick={onClose} className="mt-4 text-sm text-slate-500">다음에 할게요</button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
-}
+};
+export default JoinAcademyModal;

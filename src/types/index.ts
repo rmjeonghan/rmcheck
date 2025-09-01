@@ -1,98 +1,71 @@
 // src/types/index.ts
+import { Timestamp, FieldValue } from 'firebase/firestore';
 
-import { Timestamp, GeoPoint } from "firebase/firestore";
+export type QuizMode = 'new' | 'new_review' | 'review_all' | 'review_incorrect';
+export interface Assignment {
+  id: string;
+  academyName: string;
+  assignedDate: Timestamp;
+  assignedUnitIds: string[];
+  dayTitle: string;
+  dueDate: Timestamp;
+  title: string;
+  week: number;
+  isCompleted: boolean;
+  completedDate: Timestamp | null;
+}
 
-// --- 학습 관련 타입들 ---
+export interface WeeklyPlan {
+  week: number;
+  // 예: [0, 2, 4] -> 일, 화, 목 학습
+  days: number[]; 
+  // 예: ["1-1-1", "1-1-2"]
+  unitIds: string[]; 
+}
 
-// 질문 데이터 타입
+export interface LearningPlan {
+  id: string;
+  userId: string;
+  totalWeeks: number;
+  startDate: Timestamp;
+  endDate: Timestamp;
+  weeklyPlans: WeeklyPlan[];
+  createdAt: Timestamp;
+}
+
 export interface Question {
   id: string;
-  unitId: string;
-  subChapter: string;
   questionText: string;
   choices: string[];
   answerIndex: number;
-  mainChapter: string;
+  unitId: string;
+  explanation?: string; // 해설은 선택적으로 포함
+  reviewContext?: string; // 복습 문항일 경우 출처 정보
+  subChapter?: string;
 }
 
-// 시험지 제출 데이터 타입
 export interface Submission {
   id: string;
   userId: string;
-  examId?: string;
   questionIds: string[];
-  answers: number[];
-  incorrectQuestionIds: string[];
+  answers: (number | null)[];
   score: number;
-  mainChapter?: string;
-  subChapter?: string;
-  quizMode?: 'new' | 'mixed' | 'review_all' | 'review_incorrect';
-  createdAt: Timestamp;
-  // useMyPageData 훅에서 동적으로 추가되는 필드
-  isCorrect?: boolean[];
+  mainChapter: string;
+  // --- 📍 createdAt이 Timestamp와 FieldValue 타입을 모두 가질 수 있도록 수정합니다 ---
+  createdAt: Timestamp | FieldValue;
+  isDeleted: boolean;
   assignmentId?: string;
 }
 
-
-// --- 사용자 및 아카데미 관련 타입들 ---
-
-// 학생 데이터 타입
-export interface StudentData {
+export interface Student {
   uid: string;
+  studentName: string;
   email: string;
-  displayName?: string;
-  photoURL?: string;
-  isAcademyMember: boolean;
-  academyId?: string;
-  // DB 스크린샷에서 확인된 추가 필드
-  academyName?: string;
-  status?: 'pending' | 'active';
+  createdAt: Timestamp;
+  status: 'pending' | 'active' | 'rejected';
+  isDeleted: boolean;
+  academyName: string | null;
 }
-
-// 아카데미 데이터 타입
-export interface AcademyData {
-  id: string;
-  name: string;
-  adminId: string;
-}
-
-// 학원 과제 타입
-export interface AcademyAssignment {
-  id: string;
-  title: string;
-  chapterId: string;
-  questions: string[];
-  dueDate: Timestamp;
-  status: 'assigned' | 'completed' | 'overdue';
-  // DB 스크린샷에서 확인된 추가 필드
-  assignedUnitIds: string[];
-  week: number;
-}
-
-// 학습 계획 타입 (새로 추가)
-export interface LearningPlan {
-  userId: string;
-  weeklyPlans: Array<{
-    sessionsPerWeek: number;
-    targetChapterIds: string[];
-  }>;
-  createdAt: Timestamp; // Firestore 스크린샷에는 없지만, 관례적으로 추가
-}
-
-// Firestore에 저장될 학습 계획 (타입 가이드)
-export interface PlanToSave {
-  userId: string;
-  weeklyPlans: Array<{
-    sessionsPerWeek: number;
-    targetChapterIds: string[];
-  }>;
-}
-
-// LearningPlanSetup에서 사용되는 주간 계획 타입
-export interface WeeklyPlan {
-  week: number;
-  sessionsPerWeek: number;
-  studyDays: number[];
-  unitIds: string[];
-  unitNames: string[];
-}
+// 앞으로 생성될 다른 타입들도 이곳에 추가합니다.
+// export interface LearningPlan { ... }
+// export interface Submission { ... }
