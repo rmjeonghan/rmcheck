@@ -1,3 +1,4 @@
+// src/components/QuizView.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,8 +8,8 @@ import QuizHeader from './QuizHeader';
 import QuestionCard from './QuestionCard';
 import { useQuiz } from '@/hooks/useQuiz';
 import LoadingSpinner from './LoadingSpinner';
-// --- 📍 1. Firestore 트랜잭션 관련 함수들을 import 합니다 ---
-import { doc, collection, serverTimestamp, runTransaction } from 'firebase/firestore';
+// --- 📍 1. Firestore 트랜잭션 관련 타입(DocumentReference, DocumentSnapshot)을 추가로 import 합니다 ---
+import { doc, collection, serverTimestamp, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 
@@ -60,7 +61,7 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
     }, 1200);
   };
 
-  // --- 📍 2. handleSubmit 함수를 트랜잭션을 사용하는 새 로직으로 교체합니다 ---
+  // --- 📍 2. handleSubmit 함수를 트랜잭션 읽기/쓰기 순서 오류만 수정한 새 로직으로 교체합니다 ---
   const handleSubmit = async (finalAnswers: (number | null)[]) => {
       if (!user || isSubmitting) return;
       setIsSubmitting(true);
@@ -80,21 +81,29 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
 
       try {
           let submissionId = '';
-          // Firestore 트랜잭션을 사용하여 데이터 일관성 보장
           await runTransaction(db, async (transaction) => {
-              // 1. submission 생성
+              // --- STEP 1: 모든 읽기(get) 작업을 먼저 수행합니다 ---
+              const statRefs = questions.map(q => 
+                  doc(db, 'userQuestionStats', `${user.uid}_${q.id}`)
+              );
+              // Promise.all을 사용해 모든 문서를 한 번에 읽어옵니다.
+              const statDocs = await Promise.all(
+                  statRefs.map(ref => transaction.get(ref))
+              );
+
+              // --- STEP 2: 모든 쓰기(set, update) 작업을 이후에 수행합니다 ---
+              // 2-1. submission 생성
               const submissionRef = doc(collection(db, 'submissions'));
-              submissionId = submissionRef.id; // 생성된 ID를 저장
+              submissionId = submissionRef.id;
               transaction.set(submissionRef, submissionData);
 
-              // 2. userQuestionStats 업데이트
-              for (let i = 0; i < questions.length; i++) {
-                  const q = questions[i];
+              // 2-2. userQuestionStats 업데이트 (미리 읽어온 데이터를 사용)
+              questions.forEach((q, i) => {
                   const userAnswer = finalAnswers[i];
                   const isCorrect = q.answerIndex === userAnswer;
                   
-                  const statRef = doc(db, 'userQuestionStats', `${user.uid}_${q.id}`);
-                  const statDoc = await transaction.get(statRef);
+                  const statRef = statRefs[i];
+                  const statDoc = statDocs[i];
 
                   if (statDoc.exists()) {
                       const oldHistory = statDoc.data().history || [];
@@ -112,14 +121,16 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
                           lastAnswered: serverTimestamp(),
                       });
                   }
-              }
+              });
           });
           
           onQuizComplete({ id: submissionId, ...submissionData } as Submission, questions);
 
       } catch (error) {
           console.error("결과 저장 오류:", error);
-          onExit();
+          onExit(); // 오류가 발생해도 대시보드로 돌아가도록 처리
+      } finally {
+          setIsSubmitting(false); // 로직이 끝나면 isSubmitting 상태를 false로 변경
       }
   };
 
