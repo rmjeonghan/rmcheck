@@ -1,4 +1,5 @@
 // src/app/page.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -9,39 +10,41 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import QuizView from "@/components/QuizView";
 import { AnimatePresence } from "framer-motion";
 import ResultsView from "@/components/ResultsView";
-import { Question, Submission } from "@/types";
+import { Question, Submission, User } from "@/types";
 
+// --- ▼ 1. 수정된 부분: assignmentId 추가 ---
 export type QuizStartParams = {
   mode: 'new' | 'new_review' | 'review_all' | 'review_incorrect';
   questionCount: number;
   unitIds: string[];
   mainChapter?: string;
+  assignmentId?: string; // 과제 ID를 전달하기 위한 필드
 };
 
-// --- 📍 1. 결과 화면을 위한 상태(State) 타입 정의 ---
 export type ResultsState = {
     submission: Submission;
     questions: Question[];
+    // --- ▼ 2. 수정된 부분: assignmentId와 academyName 추가 ---
+    assignmentId?: string;
 } | null;
+
 
 export default function Home() {
   const { user, loading } = useAuth();
   const [quizStartParams, setQuizStartParams] = useState<QuizStartParams | null>(null);
-  // --- 📍 2. 결과 화면 상태(State) 추가 ---
   const [resultsState, setResultsState] = useState<ResultsState>(null);
 
   const startQuiz = (params: QuizStartParams) => {
     setQuizStartParams(params);
-    setResultsState(null); // 새 퀴즈 시작 시 이전 결과 초기화
+    setResultsState(null); 
   };
 
-  // --- 📍 3. 퀴즈가 끝나면 호출될 함수 ---
-  const showResults = (submission: Submission, questions: Question[]) => {
-    setQuizStartParams(null); // 퀴즈 상태는 비우고
-    setResultsState({ submission, questions }); // 결과 상태를 채움
+  // --- ▼ 3. 수정된 부분: assignmentId와 academyName을 받도록 수정 ---
+  const showResults = (submission: Submission, questions: Question[], assignmentId?: string) => {
+    setQuizStartParams(null);
+    setResultsState({ submission, questions, assignmentId }); // 결과 상태에 assignmentId와 academyName 포함
   };
 
-  // --- 📍 4. 모든 세션(퀴즈/결과)을 끝내고 대시보드로 돌아가는 함수 ---
   const endSession = () => {
     setQuizStartParams(null);
     setResultsState(null);
@@ -63,16 +66,17 @@ export default function Home() {
             questionCount={quizStartParams.questionCount}
             unitIds={quizStartParams.unitIds}
             mainChapter={quizStartParams.mainChapter}
-            onQuizComplete={showResults} // 결과 화면을 보여주는 함수 전달
+            assignmentId={quizStartParams.assignmentId} // QuizView에 assignmentId 전달
+            onQuizComplete={showResults} 
             onExit={endSession}
           />
         ) : resultsState ? (
-          // --- 📍 5. 결과 상태가 있으면 ResultsView를 보여줌 ---
           <ResultsView
             key="results"
             submission={resultsState.submission}
             questions={resultsState.questions}
-            onExit={endSession} // 대시보드로 돌아가는 함수 전달
+            assignmentId={resultsState.assignmentId} // ResultsView에 assignmentId 전달
+            onExit={endSession}
           />
         ) : (
           <Dashboard key="dashboard" onStartQuiz={startQuiz} />

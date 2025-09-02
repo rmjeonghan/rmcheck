@@ -3,23 +3,25 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Question, Submission, QuizMode } from '@/types';
+import { Question, Submission, QuizMode, User } from '@/types';
 import QuizHeader from './QuizHeader';
 import QuestionCard from './QuestionCard';
 import { useQuiz } from '@/hooks/useQuiz';
 import LoadingSpinner from './LoadingSpinner';
-// --- 📍 1. Firestore 트랜잭션 관련 타입(DocumentReference, DocumentSnapshot)을 추가로 import 합니다 ---
-import { doc, collection, serverTimestamp, runTransaction, DocumentReference, DocumentSnapshot } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, runTransaction, DocumentReference, Timestamp } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 
+// --- ▼ 1. Props 인터페이스 수정 ---
 interface QuizViewProps {
   mode: QuizMode;
   questionCount: number;
   unitIds: string[];
   mainChapter?: string;
+  assignmentId?: string; // 과제 ID를 받도록 추가
   onExit: () => void;
-  onQuizComplete: (submission: Submission, questions: Question[]) => void;
+  // onQuizComplete 타입에 assignmentId를 받을 수 있도록 수정
+  onQuizComplete: (submission: Submission, questions: Question[], assignmentId?: string) => void;
 }
 
 const questionVariants = {
@@ -28,7 +30,8 @@ const questionVariants = {
     exit: { y: -300, opacity: 0, scale: 0.95 },
 };
 
-const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizComplete }: QuizViewProps) => {
+// --- ▼ 2. 컴포넌트 시그니처 수정 ---
+const QuizView = ({ mode, questionCount, unitIds, mainChapter, assignmentId, onExit, onQuizComplete }: QuizViewProps) => {
   const { user } = useAuth();
   const { questions, isLoading, error, fetchQuestions } = useQuiz();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -61,7 +64,7 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
     }, 1200);
   };
 
-  // --- 📍 2. handleSubmit 함수를 트랜잭션 읽기/쓰기 순서 오류만 수정한 새 로직으로 교체합니다 ---
+  // --- ▼ 3. handleSubmit 로직 수정 ---
   const handleSubmit = async (finalAnswers: (number | null)[]) => {
       if (!user || isSubmitting) return;
       setIsSubmitting(true);
@@ -69,6 +72,27 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
       const correctAnswers = finalAnswers.filter((answer, index) => questions[index].answerIndex === answer).length;
       const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
 
+      // 만약 assignmentId가 있다면, 이것은 학원 과제입니다.
+      // submissions 컬렉션에 저장하지 않고 바로 onQuizComplete를 호출합니다.
+      if (assignmentId) {
+          // Submission 객체의 기본 형태를 만들어 전달합니다.
+          // ResultsView에서 id 없이도 처리가 가능하므로 id는 임시값 또는 undefined로 둡니다.
+          const submissionResult: Submission = {
+              id: '', // 임시 ID
+              userId: user.uid,
+              questionIds: questions.map(q => q.id),
+              answers: finalAnswers,
+              score,
+              mainChapter: mainChapter || '종합',
+              createdAt: Timestamp.now(), // new Date()로 임시 타임스탬프 생성
+              isDeleted: false,
+          };
+          onQuizComplete(submissionResult, questions, assignmentId);
+          setIsSubmitting(false); // isSubmitting 상태를 풀어줍니다.
+          return; // 여기서 함수 실행을 종료합니다.
+      }
+
+      // assignmentId가 없는 경우 (자율 학습), 기존 로직을 그대로 수행합니다.
       const submissionData: Omit<Submission, 'id'> = {
           userId: user.uid,
           questionIds: questions.map(q => q.id),
@@ -82,22 +106,17 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
       try {
           let submissionId = '';
           await runTransaction(db, async (transaction) => {
-              // --- STEP 1: 모든 읽기(get) 작업을 먼저 수행합니다 ---
               const statRefs = questions.map(q => 
                   doc(db, 'userQuestionStats', `${user.uid}_${q.id}`)
               );
-              // Promise.all을 사용해 모든 문서를 한 번에 읽어옵니다.
               const statDocs = await Promise.all(
                   statRefs.map(ref => transaction.get(ref))
               );
 
-              // --- STEP 2: 모든 쓰기(set, update) 작업을 이후에 수행합니다 ---
-              // 2-1. submission 생성
               const submissionRef = doc(collection(db, 'submissions'));
               submissionId = submissionRef.id;
               transaction.set(submissionRef, submissionData);
 
-              // 2-2. userQuestionStats 업데이트 (미리 읽어온 데이터를 사용)
               questions.forEach((q, i) => {
                   const userAnswer = finalAnswers[i];
                   const isCorrect = q.answerIndex === userAnswer;
@@ -128,9 +147,9 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, onExit, onQuizCom
 
       } catch (error) {
           console.error("결과 저장 오류:", error);
-          onExit(); // 오류가 발생해도 대시보드로 돌아가도록 처리
+          onExit();
       } finally {
-          setIsSubmitting(false); // 로직이 끝나면 isSubmitting 상태를 false로 변경
+          setIsSubmitting(false);
       }
   };
 

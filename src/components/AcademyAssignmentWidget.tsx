@@ -23,9 +23,10 @@ const AcademyAssignmentWidget = ({ onStartQuiz }: AcademyAssignmentWidgetProps) 
     // 과제는 '신규' 모드로, 과제에 포함된 모든 단원을 대상으로 퀴즈를 시작합니다.
     onStartQuiz({
       mode: 'new',
-      questionCount: 30, // 과제는 일반적으로 문항 수가 정해져 있지 않으므로 기본값 30으로 설정
+      questionCount: 5, // 과제는 일반적으로 문항 수가 정해져 있지 않으므로 기본값 30으로 설정
       unitIds: assignment.assignedUnitIds,
       mainChapter: assignment.title,
+      assignmentId: assignment.id,
     });
   };
 

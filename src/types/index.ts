@@ -66,6 +66,35 @@ export interface Student {
   isDeleted: boolean;
   academyName: string | null;
 }
+
+export interface StudentAssignment {
+  // 문서 ID는 studentId_assignmentId 형식으로 사용합니다.
+  studentId: string;
+  assignmentId: string;
+  academyName: string;
+  isCompleted: boolean;
+  completedAt: Timestamp;
+  score: number;
+}
+
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
+  // Firestore 'students' 컬렉션에서 오는 추가 정보
+  name?: string;
+  academyName?: string;
+  role?: 'student' | 'admin' | 'teacher';
+  createdAt?: Timestamp;
+  // 학습 계획 및 활동 관련 정보
+  learningPlan?: {
+    unitIds: string[];
+    createdAt: Timestamp;
+  };
+  totalQuizzes?: number;
+  totalQuestions?: number;
+}
 // 앞으로 생성될 다른 타입들도 이곳에 추가합니다.
 // export interface LearningPlan { ... }
 // export interface Submission { ... }
