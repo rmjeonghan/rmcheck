@@ -1,6 +1,6 @@
 // src/hooks/useMyPageData.ts
 import { useState, useEffect, useMemo } from 'react';
-import { Timestamp, collection, query, where, getDocs, documentId, orderBy } from 'firebase/firestore';
+import { Timestamp, collection, query, where, doc, getDoc, getDocs, documentId, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 import { Submission, Question } from '@/types';
@@ -20,18 +20,47 @@ export const useMyPageData = () => {
       }
       try {
         setLoading(true);
-        // 1. 사용자의 모든 제출 기록(submissions) 가져오기
-        const subQuery = query(
-          collection(db, 'submissions'),
-          where('userId', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const subSnapshot = await getDocs(subQuery);
-        const subs = subSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Submission));
-        setSubmissions(subs);
 
-        // 2. 제출 기록에 포함된 모든 문제 정보 가져오기
-        const questionIds = [...new Set(subs.flatMap(s => s.questionIds))];
+        // 1. 학생 문서에서 userSubmissions 배열 가져오기
+        const studentRef = doc(db, 'students', user.uid);
+        const studentSnap = await getDoc(studentRef);
+
+        if (!studentSnap.exists()) {
+          setSubmissions([]);
+          setQuestions(new Map());
+          return;
+        }
+
+        const userSubmissions: string[] = studentSnap.data().userSubmissions || [];
+
+        if (userSubmissions.length === 0) {
+          setSubmissions([]);
+          setQuestions(new Map());
+          return;
+        }
+
+        // 2. submissions 문서들 가져오기 (30개씩 쪼개기)
+        const fetchedSubs: Submission[] = [];
+        for (let i = 0; i < userSubmissions.length; i += 30) {
+          const chunk = userSubmissions.slice(i, i + 30);
+          const subQuery = query(collection(db, 'submissions'), where(documentId(), 'in', chunk));
+          const subSnapshot = await getDocs(subQuery);
+          subSnapshot.forEach(doc => {
+            fetchedSubs.push({ id: doc.id, ...doc.data() } as Submission);
+          });
+        }
+
+        // createdAt 기준 정렬 (최신순)
+        fetchedSubs.sort((a, b) => {
+          const aTime = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : 0;
+          const bTime = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : 0;
+          return bTime - aTime;
+        });
+
+        setSubmissions(fetchedSubs);
+
+        // 3. 제출 기록에 포함된 모든 문제 정보 가져오기
+        const questionIds = [...new Set(fetchedSubs.flatMap(s => s.questionIds))];
         if (questionIds.length > 0) {
           const questionsMap = new Map<string, Question>();
           for (let i = 0; i < questionIds.length; i += 30) {
