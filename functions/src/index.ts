@@ -18,6 +18,9 @@ const kakaoRedirectUri = process.env.KAKAO_REDIRECT_URI;
 const kakaoClientSecret = process.env.KAKAO_CLIENT_SECRET;
 
 
+const metaDocId = "-1";
+
+
 // =================================================================
 // --- 카카오 로그인 관련 함수 ---
 // =================================================================
@@ -109,6 +112,16 @@ export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) 
 // --- 시험지 생성 함수 (모든 기능 및 예외처리 최종 버전) ---
 // =================================================================
 
+function getRandomSample<T>(arr: T[], n: number): T[] {
+  if (n >= arr.length) return [...arr];
+  const shuffled = [...arr];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, n);
+}
+
 // 헬퍼: Firestore에서 문서를 가져오는 함수
 async function fetchDocs(collection: string, ids: string[]): Promise<Map<string, any>> {
     if (ids.length === 0) return new Map();
@@ -124,7 +137,7 @@ async function fetchDocs(collection: string, ids: string[]): Promise<Map<string,
     return results;
 }
 
-export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB" }, async (request) => {
+export const generateExam1 = onCall({ region: "asia-northeast3", memory: "512MiB" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
     
     const uid = request.auth.uid;
@@ -236,6 +249,83 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
     }
 });
 
+export const generateExam = onCall(
+  { region: "asia-northeast3", memory: "512MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+    }
+
+    const uid = request.auth.uid;
+    const { unitIds, questionCount = 30, mode = "new" } = request.data;
+
+    logger.info(
+      `시험지 생성 요청: uid=${uid}, mode=${mode}, count=${questionCount}, unitIds=${unitIds}`
+    );
+
+    if (mode !== "new") {
+      throw new HttpsError(
+        "invalid-argument",
+        "현재 new 모드만 지원됩니다."
+      );
+    }
+    if (!unitIds || unitIds.length === 0) {
+      throw new HttpsError("invalid-argument", "단원을 선택해야 합니다.");
+    }
+
+    try {
+      // 1. 메타 문서에서 unitIds별 question 배열 가져오기
+      const metaDoc = await db.collection("questionBank").doc(metaDocId).get();
+      if (!metaDoc.exists) {
+        throw new HttpsError("not-found", "메타 문서(-1)가 없습니다.");
+      }
+      const allMap = metaDoc.data()?.all_question_ids || {};
+      console.log('allMap:', allMap);
+      const candidateIds = unitIds.flatMap(
+        (u: string) => allMap[u] || []
+      );
+      console.log('candidateIds:', candidateIds);
+
+      if (candidateIds.length === 0) {
+        throw new HttpsError("not-found", "해당 단원에 등록된 문제가 없습니다.");
+      }
+
+      // 2. 유저 풀이 기록 가져오기
+      const userStatsRef = db.collection("userQuestionStats").doc(`stats_${uid}`);
+      const userStatsSnap = await userStatsRef.get();
+      const solvedIds = userStatsSnap.exists
+        ? Object.keys(userStatsSnap.data()?.stats || {})
+        : [];
+
+      const solvedSet = new Set(solvedIds);
+
+      // 3. 아직 안 푼 문제만 필터링
+      const unsolvedIds = candidateIds.filter((id: string) => !solvedSet.has(id));
+
+      if (unsolvedIds.length === 0) {
+        throw new HttpsError("not-found", "아직 풀 수 있는 새로운 문제가 없습니다.");
+      }
+
+      // 4. 랜덤 샘플링
+      const selectedIds = getRandomSample<string>(unsolvedIds, questionCount);
+
+      // 5. 실제 문제 데이터 fetch
+      const questionsMap = await fetchDocs("questionBank", selectedIds);
+
+
+      const questions = selectedIds
+        .map((id) => questionsMap.get(id))
+        .filter(Boolean);
+
+      // TODO 문제 개수 부족할 때 어떡할 거임?
+      return { questions, status: "SUCCESS" };
+    } catch (error) {
+      logger.error("시험지 생성 오류:", error);
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError("internal", "시험지 생성 중 오류가 발생했습니다.");
+    }
+  }
+);
 
 // =================================================================
 // --- DB 트리거 ---
@@ -243,7 +333,6 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
 
 // 새 문서가 생성될 때
 const collectionName = "questionBank";
-const metaDocId = "-1";
 
 // 문서가 생성될 때
 export const onQuestionCreated = onDocumentCreated(
