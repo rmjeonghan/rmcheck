@@ -2,6 +2,7 @@
 import { Timestamp, FieldValue } from 'firebase/firestore';
 
 export type QuizMode = 'new' | 'new_review' | 'review_all' | 'review_incorrect';
+
 export interface Assignment {
   id: string;
   academyName: string;
@@ -17,12 +18,13 @@ export interface Assignment {
 
 export interface WeeklyPlan {
   week: number;
-  // 예: [0, 2, 4] -> 일, 화, 목 학습
-  days: number[]; 
+  // 예: [0, 2, 4] -> 일, 화, 목 학습 // 0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토
+  days: number[];
   // 예: ["1-1-1", "1-1-2"]
-  unitIds: string[]; 
+  unitIds: string[];
 }
 
+// 📌 [수정] 중복 정의를 합치고, createdAt/updatedAt에 FieldValue 타입을 추가했습니다.
 export interface LearningPlan {
   id: string;
   userId: string;
@@ -30,7 +32,10 @@ export interface LearningPlan {
   startDate: Timestamp;
   endDate: Timestamp;
   weeklyPlans: WeeklyPlan[];
-  createdAt: Timestamp;
+  progress?: { [week: number]: number[] };
+  reviewProgress?: { [week: number]: number };
+  createdAt: Timestamp | FieldValue;
+  updatedAt?: Timestamp | FieldValue; // updatedAt도 FieldValue를 가질 수 있도록 수정
 }
 
 export interface Question {
@@ -39,11 +44,12 @@ export interface Question {
   choices: string[];
   answerIndex: number;
   unitId: string;
-  explanation?: string; // 해설은 선택적으로 포함
-  reviewContext?: string; // 복습 문항일 경우 출처 정보
+  explanation?: string;
+  reviewContext?: string;
   subChapter?: string;
 }
 
+// 📌 [수정] 중복 정의를 합치고 createdAt 타입을 올바르게 수정했습니다.
 export interface Submission {
   id: string;
   userId: string;
@@ -51,10 +57,10 @@ export interface Submission {
   answers: (number | null)[];
   score: number;
   mainChapter: string;
-  // --- 📍 createdAt이 Timestamp와 FieldValue 타입을 모두 가질 수 있도록 수정합니다 ---
   createdAt: Timestamp | FieldValue;
   isDeleted: boolean;
   assignmentId?: string;
+  mode?: QuizMode;
 }
 
 export interface Student {
@@ -68,7 +74,6 @@ export interface Student {
 }
 
 export interface StudentAssignment {
-  // 문서 ID는 studentId_assignmentId 형식으로 사용합니다.
   studentId: string;
   assignmentId: string;
   academyName: string;
@@ -82,12 +87,10 @@ export interface User {
   email: string | null;
   displayName?: string | null;
   photoURL?: string | null;
-  // Firestore 'students' 컬렉션에서 오는 추가 정보
   name?: string;
   academyName?: string;
   role?: 'student' | 'admin' | 'teacher';
   createdAt?: Timestamp;
-  // 학습 계획 및 활동 관련 정보
   learningPlan?: {
     unitIds: string[];
     createdAt: Timestamp;
@@ -96,33 +99,4 @@ export interface User {
   totalQuestions?: number;
 }
 
-export interface LearningPlan {
-  id: string;
-  userId: string;
-  weeklyPlans: WeeklyPlan[];
-  progress?: { [week: number]: number[] }; 
-  reviewProgress?: { [week: number]: number }; 
-  createdAt: Timestamp; // 'any' 타입을 'Timestamp'로 수정
-  updatedAt?: Timestamp; // 'any' 타입을 'Timestamp'로 수정
-}
-
-export interface WeeklyPlan {
-  week: number;
-  days: number[]; // 0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토
-  unitIds: string[];
-}
-
-export interface Submission {
-  id: string;
-  userId: string;
-  questionIds: string[];
-  answers: (number | null)[];
-  score: number;
-  mainChapter: string;
-  createdAt: Timestamp; // 'any' 타입을 'Timestamp'로 수정
-  isDeleted: boolean;
-  mode?: QuizMode;
-}
-// 앞으로 생성될 다른 타입들도 이곳에 추가합니다.
-// export interface LearningPlan { ... }
-// export interface Submission { ... }
+// ❌ [삭제] 파일 하단에 중복으로 선언되었던 LearningPlan, WeeklyPlan, Submission 인터페이스는 모두 제거했습니다.

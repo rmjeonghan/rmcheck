@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 // ▼▼▼ 여기에 onSnapshot을 추가하여 import 오류를 해결합니다. ▼▼▼
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc, onSnapshot } from 'firebase/firestore';
+import { Timestamp, doc, getDoc, setDoc, serverTimestamp, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 import { LearningPlan, WeeklyPlan, QuizMode } from '@/types';
@@ -78,10 +78,9 @@ export const useLearningPlan = () => {
     if (!user || !plan || !plan.createdAt) return;
 
     // createdAt이 Timestamp 객체인지 확인 후 Date 객체로 변환
-    const planStartDate = (plan.createdAt && typeof plan.createdAt.toDate === 'function')
+    const planStartDate = (plan.createdAt instanceof Timestamp)
       ? startOfDay(plan.createdAt.toDate())
       : startOfDay(new Date());
-    
     const today = startOfDay(new Date());
     const currentWeekNumber = differenceInWeeks(today, planStartDate) + 1;
     const currentDayIndex = getDay(today);

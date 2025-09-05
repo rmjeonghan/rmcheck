@@ -1,6 +1,7 @@
 // src/components/CurrentPlanWidget.tsx
 "use client";
 
+import { Timestamp } from 'firebase/firestore';
 import { LearningPlan } from "@/types";
 import { curriculumData } from "@/data/curriculum";
 import { differenceInWeeks, startOfDay } from 'date-fns';
@@ -31,7 +32,7 @@ const CurrentPlanWidget = ({ plan, onEdit }: CurrentPlanWidgetProps) => {
 console.log("CurrentPlanWidget에 전달된 plan:", plan);
   const today = startOfDay(new Date());
   
-  const planStartDate = (plan.createdAt && typeof plan.createdAt.toDate === 'function') 
+  const planStartDate = (plan.createdAt instanceof Timestamp) 
     ? startOfDay(plan.createdAt.toDate()) 
     : today;
 

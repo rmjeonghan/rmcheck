@@ -1,6 +1,6 @@
 // src/hooks/useMyPageData.ts
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, documentId, orderBy } from 'firebase/firestore';
+import { Timestamp, collection, query, where, getDocs, documentId, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 import { Submission, Question } from '@/types';
@@ -66,11 +66,15 @@ export const useMyPageData = () => {
     const averageScore = Math.round(totalScore / totalSubmissions);
 
     const scoreTrend = submissions
-      .map(s => ({
-        date: s.createdAt.toDate().toLocaleDateString(),
-        score: s.score,
-      }))
-      .reverse();
+      .map(s => {
+        // createdAt이 Timestamp 인스턴스일 때만 toDate()를 호출합니다.
+        const date = (s.createdAt instanceof Timestamp)
+          ? s.createdAt.toDate().toLocaleDateString()
+          : "날짜 정보 없음"; // 혹시 모를 예외 상황을 대비한 기본값
+
+    return { date, score: s.score };
+  })
+  .reverse();
 
     const chapterPerformance: { [key: string]: { correct: number; total: number } } = {};
     // ... (향후 학습 분석 탭에서 사용할 상세 로직)
