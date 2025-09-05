@@ -1,5 +1,6 @@
 // src/app/my-page/page.tsx
 "use client";
+export const dynamic = 'force-dynamic';
 
 import { useMyPageData } from "@/hooks/useMyPageData";
 import LoadingSpinner from "@/components/LoadingSpinner";

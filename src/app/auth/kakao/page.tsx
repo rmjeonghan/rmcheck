@@ -1,4 +1,6 @@
 // src/app/auth/kakao/page.tsx
+export const dynamic = 'force-dynamic';
+
 import { Suspense } from 'react';
 import KakaoLoginClient from './KakaoLoginClient';
 import LoadingSpinner from '@/components/LoadingSpinner';
