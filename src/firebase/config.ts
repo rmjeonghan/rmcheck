@@ -8,9 +8,10 @@ const firebaseConfig = {
   apiKey: "AIzaSyC5SUu7e-aNUfgBEeEoXEwjONknWKhbtBI",
   authDomain: "rmcheck-4e79c.firebaseapp.com",
   projectId: "rmcheck-4e79c",
-  storageBucket: "rmcheck-4e79c.appspot.com",
+  storageBucket: "rmcheck-4e79c.firebasestorage.app",
   messagingSenderId: "1081522017302",
-  appId: "1:1081522017302:web:b7bd3e0436a05c92c29137"
+  appId: "1:1081522017302:web:b7bd3e0436a05c92c29137",
+  measurementId: "G-WT99DTVQW7"
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();

@@ -4,8 +4,9 @@ import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldPath } from "firebase-admin/firestore";
+import { getFirestore, FieldPath, FieldValue } from "firebase-admin/firestore";
 import axios from "axios";
+import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 
 // Firebase Admin SDK 초기화
 initializeApp();
@@ -55,13 +56,27 @@ export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) 
   }).toString();
 
   try {
-    const tokenResponse = await axios.post(tokenUrl, params, {
+    interface IKakaoTokenResponse {
+      access_token: string;
+    }
+
+    const tokenResponse = await axios.post<IKakaoTokenResponse>(tokenUrl, params, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
     const accessToken = tokenResponse.data.access_token;
 
+    interface IUserInfoResponse {
+      id: string;
+      properties: {
+        nickname: string;
+      };
+      kakao_account: {
+        email: string;
+      }
+    }
+
     const userInfoUrl = "https://kapi.kakao.com/v2/user/me";
-    const userInfoResponse = await axios.get(userInfoUrl, {
+    const userInfoResponse = await axios.get<IUserInfoResponse>(userInfoUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const kakaoUser = userInfoResponse.data;
@@ -114,7 +129,9 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
     
     const uid = request.auth.uid;
     const { unitIds, questionCount = 30, mode = 'new' } = request.data;
-    logger.info(`시험지 생성 요청: uid=${uid}, mode=${mode}, count=${questionCount}`);
+    logger.info(`시험지 생성 요청: uid=${uid}, mode=${mode}, count=${questionCount}, unitIds=${unitIds}`);
+    logger.info(`unitIds`);
+    logger.info(`${unitIds}`);
 
     try {
         const statsQuery = db.collection("userQuestionStats").where("userId", "==", uid);
@@ -138,10 +155,8 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
         if (mode === 'new') {
             if (!unitIds || unitIds.length === 0) throw new HttpsError("invalid-argument", "단원을 선택해야 합니다.");
             
-            const random = Math.random();
             let qQuery = db.collection("questionBank")
                 .where("unitId", "in", unitIds)
-                .where("random", ">=", random)
                 .limit(questionCount * 2);
 
             let snapshot = await qQuery.get();
@@ -150,7 +165,6 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
             if (candidates.length < questionCount * 2) {
                 qQuery = db.collection("questionBank")
                     .where("unitId", "in", unitIds)
-                    .where("random", "<", random)
                     .limit(questionCount * 2);
                 snapshot = await qQuery.get();
                 candidates.push(...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -171,10 +185,8 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
 
             // 3. 신규 문항 가져오기
             if (newCount > 0) {
-                const random = Math.random();
                 let qQuery = db.collection("questionBank")
                     .where("unitId", "in", unitIds)
-                    .where("random", ">=", random)
                     .limit(newCount * 2);
 
                 let snapshot = await qQuery.get();
@@ -183,7 +195,6 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
                 if (candidates.length < newCount * 2) {
                     qQuery = db.collection("questionBank")
                         .where("unitId", "in", unitIds)
-                        .where("random", "<", random)
                         .limit(newCount * 2);
                     snapshot = await qQuery.get();
                     candidates.push(...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -219,8 +230,88 @@ export const generateExam = onCall({ region: "asia-northeast3", memory: "512MiB"
         return { questions, status: 'SUCCESS' };
 
     } catch (error) {
-        logger.error("시험지 생성 중 오류 발생:", error);
+        logger.error(`시험지 생성 중 오류 발생(mode=${mode}):`, error);
         if (error instanceof HttpsError) throw error;
         throw new HttpsError("internal", "시험지를 생성하는 중 오류가 발생했습니다.");
     }
 });
+
+
+// =================================================================
+// --- DB 트리거 ---
+// =================================================================
+
+// 새 문서가 생성될 때
+const collectionName = "questionBank";
+const metaDocId = "-1";
+
+// 문서가 생성될 때
+export const onQuestionCreated = onDocumentCreated(
+  {
+    document: `/${collectionName}/{docId}`,
+    region: "asia-northeast3",
+  },
+  async (event) => {
+    const docId = event.params.docId;
+    if (docId === metaDocId) return; // 메타 문서 자체는 무시
+
+    try {
+      // 새로 생성된 문서의 unitId 값을 읽는다
+      const newDocSnap = await db.collection(collectionName).doc(docId).get();
+      const unitId = newDocSnap.get("unitId");
+      if (!unitId) {
+        logger.warn(`⚠️ 문서 ${docId}에 unitId가 없음 → 메타 문서에 반영하지 않음`);
+        return;
+      }
+
+      const metaDocRef = db.collection(collectionName).doc(metaDocId);
+
+      // map 구조에서 unitId 키 아래에 arrayUnion
+      await metaDocRef.set(
+        {
+          all_question_ids: {
+            [unitId]: FieldValue.arrayUnion(docId),
+          },
+        },
+        { merge: true }
+      );
+
+      logger.info(`✅ 문서 ${docId} 추가됨 → unitId=${unitId} 배열에 반영`);
+    } catch (error) {
+      logger.error("onQuestionCreated 동기화 실패:", error);
+    }
+  }
+);
+
+// 문서가 삭제될 때
+export const onQuestionDeleted = onDocumentDeleted(
+  {
+    document: `/${collectionName}/{docId}`,
+    region: "asia-northeast3",
+  },
+  async (event) => {
+    const docId = event.params.docId;
+    if (docId === metaDocId) return;
+
+    try {
+      // 삭제 전의 데이터 스냅샷
+      const data = event.data?.data(); 
+      const unitId = data?.unitId;
+
+      if (!unitId) {
+        logger.warn(`⚠️ 문서 ${docId} 삭제 이벤트에서 unitId 없음 → 메타 문서 수정 불가`);
+        return;
+      }
+
+      const metaDocRef = db.collection(collectionName).doc(metaDocId);
+
+      await metaDocRef.update({
+        [`all_question_ids.${unitId}`]: FieldValue.arrayRemove(docId),
+      });
+
+      logger.info(`🗑️ 문서 ${docId} 삭제됨 → unitId=${unitId} 배열에서 제거`);
+    } catch (error) {
+      logger.error("onQuestionDeleted 동기화 실패:", error);
+    }
+  }
+);
