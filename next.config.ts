@@ -7,6 +7,6 @@ const nextConfig: NextConfig = {
     // 타입 에러를 해결한 후에는 반드시 이 옵션을 제거하는 것이 좋습니다.
     ignoreDuringBuilds: true,
   },
-  serverComponentsExternalPackages: ['framer-motion'],
+  serverExternalPackages: ['framer-motion'],
 }
 export default nextConfig
