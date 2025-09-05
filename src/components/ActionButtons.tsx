@@ -40,21 +40,37 @@ const ActionButtons = ({ onStartQuiz }: ActionButtonsProps) => {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <ActionButton
-          label="신규 문항"
+          label={
+      <div className="flex flex-col items-center leading-tight">
+        <span>신규</span>
+        <span>문항</span>
+      </div>
+    }
           icon={Sparkles}
           color="from-blue-500 to-blue-400"
           onClick={() => handleNewQuizClick('new')}
         />
         <ActionButton
-          label="신규+복습"
+          label={
+    // 이 div에 음수 마진을 추가합니다.
+    <div className="flex flex-col items-start leading-tight -ml-2">
+      <span className="pl-[0.5em]">신규</span>
+      <span className="-ml-1">+복습</span>
+    </div>
+  }
           icon={Combine}
           color="from-purple-500 to-purple-400"
           onClick={() => handleNewQuizClick('new_review')}
         />
         <ActionButton
-          label="자유 복습"
+          label={
+      <div className="flex flex-col items-center leading-tight">
+        <span>자유</span>
+        <span>복습</span>
+      </div>
+    }
           icon={ListRestart}
           color="from-green-500 to-green-400"
           onClick={handleReviewQuizClick}
@@ -80,7 +96,7 @@ const ActionButtons = ({ onStartQuiz }: ActionButtonsProps) => {
 
 // --- 📍 타입 정의 추가 ---
 interface ActionButtonProps {
-    label: string;
+    label: React.ReactNode; // label 타입을 string에서 React.ReactNode로 변경
     icon: React.ComponentType<LucideProps>;
     color: string;
     onClick: () => void;

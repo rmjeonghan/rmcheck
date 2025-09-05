@@ -38,5 +38,6 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.12",
     "typescript": "^5"
-  }
+  },
+  "proxy": "https://asia-northeast3-rmcheck-4e79c.cloudfunctions.net"
 }

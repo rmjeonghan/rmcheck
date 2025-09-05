@@ -95,6 +95,34 @@ export interface User {
   totalQuizzes?: number;
   totalQuestions?: number;
 }
+
+export interface LearningPlan {
+  id: string;
+  userId: string;
+  weeklyPlans: WeeklyPlan[];
+  progress?: { [week: number]: number[] }; 
+  reviewProgress?: { [week: number]: number }; 
+  createdAt: Timestamp; // 'any' 타입을 'Timestamp'로 수정
+  updatedAt?: Timestamp; // 'any' 타입을 'Timestamp'로 수정
+}
+
+export interface WeeklyPlan {
+  week: number;
+  days: number[]; // 0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토
+  unitIds: string[];
+}
+
+export interface Submission {
+  id: string;
+  userId: string;
+  questionIds: string[];
+  answers: (number | null)[];
+  score: number;
+  mainChapter: string;
+  createdAt: Timestamp; // 'any' 타입을 'Timestamp'로 수정
+  isDeleted: boolean;
+  mode?: QuizMode;
+}
 // 앞으로 생성될 다른 타입들도 이곳에 추가합니다.
 // export interface LearningPlan { ... }
 // export interface Submission { ... }

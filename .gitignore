@@ -42,3 +42,6 @@ next-env.d.ts
 
 #환경 변수 파일
 .env.rmcheck-4e79c
+
+#서비스 키
+serviceAccountKey.json

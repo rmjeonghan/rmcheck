@@ -51,11 +51,23 @@ const AcademyAssignmentWidget = ({ onStartQuiz }: AcademyAssignmentWidgetProps) 
     );
   }
 
+  // ▼▼▼ [수정됨] 과제를 정렬하는 로직 추가 ▼▼▼
+  const sortedAssignments = [...assignments].sort((a, b) => {
+    // 1. 완료된 과제(a.isCompleted)를 미완료 과제 뒤로 보냅니다.
+    if (a.isCompleted && !b.isCompleted) return 1;
+    if (!a.isCompleted && b.isCompleted) return -1;
+
+    // 2. 같은 상태 내에서는 마감일(dueDate) 오름차순으로 정렬합니다.
+    return a.dueDate.toDate().getTime() - b.dueDate.toDate().getTime();
+  });
+  // ▲▲▲ [수정됨] ▲▲▲
+
   return (
     <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md">
       <h2 className="text-lg font-bold text-slate-700 mb-4">오늘의 과제</h2>
       <div className="flex overflow-x-auto space-x-4 pb-4">
-        {assignments.map((assignment, index) => {
+        {/* ▼▼▼ [수정됨] 정렬된 배열(sortedAssignments)을 사용합니다 ▼▼▼ */}
+        {sortedAssignments.map((assignment, index) => {
           const isCompleted = assignment.isCompleted;
           const dueDate = assignment.dueDate.toDate();
           const isOverdue = !isCompleted && dueDate < today;

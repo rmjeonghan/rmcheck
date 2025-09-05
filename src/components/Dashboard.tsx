@@ -10,6 +10,7 @@ import SetupPromptWidget from "./SetupPromptWidget";
 import { useLearningPlan } from "@/hooks/useLearningPlan";
 import LoadingSpinner from "./LoadingSpinner";
 import LearningPlanSetupModal from "./LearningPlanSetupModal";
+import CurrentPlanWidget from "./CurrentPlanWidget"; // CurrentPlanWidget을 import합니다.
 import { QuizStartParams } from "@/app/page";
 
 interface DashboardProps {
@@ -18,12 +19,7 @@ interface DashboardProps {
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-    },
-  },
+  visible: { opacity: 1, transition: { staggerChildren: 0.2 } },
 };
 
 const itemVariants = {
@@ -32,16 +28,21 @@ const itemVariants = {
 };
 
 const Dashboard = ({ onStartQuiz }: DashboardProps) => {
-  const { hasLearningPlan, isLoading } = useLearningPlan();
-  const [isSetupModalOpen, setSetupModalOpen] = useState(false);
+  // ▼▼▼ plan을 useLearningPlan 훅에서 가져옵니다. ▼▼▼
+  const { plan, hasLearningPlan, isLoading } = useLearningPlan();
+  const [isModalOpen, setModalOpen] = useState(false);
 
   if (isLoading) {
     return <LoadingSpinner />;
   }
 
+  const handleEditPlan = () => {
+    setModalOpen(true);
+  };
+
   return (
     <>
-      <div className="bg-slate-100 min-h-screen">
+      <div className="bg-slate-100 h-full">
         <Header />
         <motion.main
           className="p-4 sm:p-6 space-y-6"
@@ -50,20 +51,17 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
           animate="visible"
         >
           <motion.div variants={itemVariants}>
-            {/* --- 📍 여기에 onStartQuiz를 전달합니다 --- */}
             <AcademyAssignmentWidget onStartQuiz={onStartQuiz} />
           </motion.div>
           
-          {hasLearningPlan ? (
+          {/* ▼▼▼ plan이 null이 아닐 때만 CurrentPlanWidget을 렌더링하도록 수정합니다. ▼▼▼ */}
+          {hasLearningPlan && plan ? (
             <motion.div variants={itemVariants}>
-              <div className="bg-white p-6 rounded-xl shadow-md text-center">
-                   <h2 className="text-lg font-bold">나의 학습 계획</h2>
-                   <p className="text-slate-500 mt-2">학습 계획 위젯이 여기에 표시됩니다.</p>
-              </div>
+              <CurrentPlanWidget plan={plan} onEdit={handleEditPlan} />
             </motion.div>
           ) : (
             <motion.div variants={itemVariants}>
-              <SetupPromptWidget onSetupClick={() => setSetupModalOpen(true)} />
+              <SetupPromptWidget onSetupClick={() => setModalOpen(true)} />
             </motion.div>
           )}
 
@@ -72,13 +70,16 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
           </motion.div>
         </motion.main>
       </div>
-
+      
+      {/* 모달이 열릴 때 plan 데이터를 initialPlan으로 전달합니다. */}
       <LearningPlanSetupModal
-        isOpen={isSetupModalOpen}
-        onClose={() => setSetupModalOpen(false)}
+        isOpen={isModalOpen}
+        onClose={() => setModalOpen(false)}
+        initialPlan={plan}
       />
     </>
   );
 };
 
 export default Dashboard;
+
