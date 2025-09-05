@@ -14,7 +14,7 @@ const LoadingSpinner = () => {
         }}
         animate={{ rotate: 360 }}
         transition={{
-          loop: Infinity,
+          repeat: Infinity,
           ease: 'linear',
           duration: 1,
         }}
