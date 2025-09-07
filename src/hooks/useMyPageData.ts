@@ -1,14 +1,29 @@
 // src/hooks/useMyPageData.ts
+"use client";
+
 import { useState, useEffect, useMemo } from 'react';
-import { Timestamp, collection, query, where, doc, getDoc, getDocs, documentId, orderBy } from 'firebase/firestore';
+import {
+  Timestamp,
+  collection,
+  query,
+  where,
+  doc,
+  getDoc,
+  getDocs,
+  documentId,
+} from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 import { Submission, Question } from '@/types';
 
 export const useMyPageData = () => {
-  const { user } = useAuth();
+  // ✅ null-safe 처리
+  const auth = useAuth();
+  const user = auth?.user ?? null;
+
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [questions, setQuestions] = useState<Map<string, Question>>(new Map());
+  const [userQuestionStats, setUserQuestionStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,13 +54,15 @@ export const useMyPageData = () => {
           return;
         }
 
-        // 2. submissions 문서들 가져오기 (30개씩 쪼개기)
+        // 2. submissions 문서들 가져오기
         const fetchedSubs: Submission[] = [];
-        for (let i = 0; i < userSubmissions.length; i += 30) {
-          const chunk = userSubmissions.slice(i, i + 30);
-          const subQuery = query(collection(db, 'submissions'), where(documentId(), 'in', chunk));
+        if (userSubmissions.length > 0) {
+          const subQuery = query(
+            collection(db, 'submissions'),
+            where(documentId(), 'in', userSubmissions)
+          );
           const subSnapshot = await getDocs(subQuery);
-          subSnapshot.forEach(doc => {
+          subSnapshot.forEach((doc) => {
             fetchedSubs.push({ id: doc.id, ...doc.data() } as Submission);
           });
         }
@@ -60,22 +77,26 @@ export const useMyPageData = () => {
         setSubmissions(fetchedSubs);
 
         // 3. 제출 기록에 포함된 모든 문제 정보 가져오기
-        const questionIds = [...new Set(fetchedSubs.flatMap(s => s.questionIds))];
+        const questionIds = [...new Set(fetchedSubs.flatMap((s) => s.questionIds))];
         if (questionIds.length > 0) {
           const questionsMap = new Map<string, Question>();
-          for (let i = 0; i < questionIds.length; i += 30) {
-            const chunk = questionIds.slice(i, i + 30);
-            const qQuery = query(collection(db, 'questionBank'), where(documentId(), 'in', chunk));
-            const qSnapshot = await getDocs(qQuery);
-            qSnapshot.forEach(doc => {
-              questionsMap.set(doc.id, { id: doc.id, ...doc.data() } as Question);
-            });
-          }
+          const qQuery = query(collection(db, 'questionBank'), where(documentId(), 'in', questionIds));
+          const qSnapshot = await getDocs(qQuery);
+          qSnapshot.forEach((doc) => {
+            questionsMap.set(doc.id, { id: doc.id, ...doc.data() } as Question);
+          });
           setQuestions(questionsMap);
         }
+
+        // 4. userQuestionStats 문서 가져오기 - 오답노트용
+        const userStatsRef = doc(db, 'userQuestionStats', `stats_${user.uid}`);
+        const userStatsSnap = await getDoc(userStatsRef);
+        if (userStatsSnap.exists()) {
+          setUserQuestionStats(userStatsSnap.data().stats);
+        }
       } catch (e) {
-        console.error("마이페이지 데이터 조회 오류:", e);
-        setError("데이터를 불러오는 중 오류가 발생했습니다.");
+        console.error('마이페이지 데이터 조회 오류:', e);
+        setError('데이터를 불러오는 중 오류가 발생했습니다.');
       } finally {
         setLoading(false);
       }
@@ -83,10 +104,13 @@ export const useMyPageData = () => {
     fetchData();
   }, [user]);
 
-  // 3. 불러온 데이터를 기반으로 통계 및 분석 자료 가공 (useMemo로 성능 최적화)
+  // 5. 통계 및 분석 자료 가공
   const { stats, analysisData } = useMemo(() => {
     if (submissions.length === 0 || questions.size === 0) {
-      return { stats: { totalSubmissions: 0, totalProblems: 0, averageScore: 0 }, analysisData: { scoreTrend: [], chapterPerformance: {} } };
+      return {
+        stats: { totalSubmissions: 0, totalProblems: 0, averageScore: 0 },
+        analysisData: { scoreTrend: [], chapterPerformance: {} },
+      };
     }
 
     const totalSubmissions = submissions.length;
@@ -95,18 +119,17 @@ export const useMyPageData = () => {
     const averageScore = Math.round(totalScore / totalSubmissions);
 
     const scoreTrend = submissions
-      .map(s => {
-        // createdAt이 Timestamp 인스턴스일 때만 toDate()를 호출합니다.
-        const date = (s.createdAt instanceof Timestamp)
-          ? s.createdAt.toDate().toLocaleDateString()
-          : "날짜 정보 없음"; // 혹시 모를 예외 상황을 대비한 기본값
-
-    return { date, score: s.score };
-  })
-  .reverse();
+      .map((s) => {
+        const date =
+          s.createdAt instanceof Timestamp
+            ? s.createdAt.toDate().toLocaleDateString()
+            : '날짜 정보 없음';
+        return { date, score: s.score };
+      })
+      .reverse();
 
     const chapterPerformance: { [key: string]: { correct: number; total: number } } = {};
-    // ... (향후 학습 분석 탭에서 사용할 상세 로직)
+    // TODO: 학습 분석 상세 로직
 
     return {
       stats: { totalSubmissions, totalProblems, averageScore },
@@ -114,5 +137,5 @@ export const useMyPageData = () => {
     };
   }, [submissions, questions]);
 
-  return { stats, analysisData, submissions, questions, loading, error };
+  return { stats, analysisData, submissions, questions, userQuestionStats, loading, error };
 };
