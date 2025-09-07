@@ -10,7 +10,7 @@ import { BarChart, LayoutDashboard, NotebookText, Trophy, History } from 'lucide
 
 const MyReportTabs = (props: any) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  
+
   const tabs = [
     { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
     { id: 'analysis', label: '학습 분석', icon: BarChart },
@@ -27,11 +27,10 @@ const MyReportTabs = (props: any) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 flex items-center space-x-2 px-3 sm:px-4 py-3 font-semibold whitespace-nowrap transition-colors ${
-                activeTab === tab.id
+              className={`flex-shrink-0 flex items-center space-x-2 px-3 sm:px-4 py-3 font-semibold whitespace-nowrap transition-colors ${activeTab === tab.id
                   ? 'border-b-2 border-indigo-500 text-indigo-600'
                   : 'text-slate-500 hover:text-indigo-500'
-              }`}
+                }`}
             >
               <tab.icon className="w-5 h-5" />
               <span>{tab.label}</span>
@@ -44,7 +43,7 @@ const MyReportTabs = (props: any) => {
         {activeTab === 'dashboard' && <MyPageDashboard stats={props.stats} />}
         {activeTab === 'analysis' && <LearningAnalysis analysisData={props.analysisData} />}
         {activeTab === 'history' && <PreviousHistory submissions={props.submissions} questions={props.questions} />}
-        {activeTab === 'incorrect' && <IncorrectNoteTab submissions={props.submissions} questions={props.questions} />}
+        {activeTab === 'incorrect' && <IncorrectNoteTab submissions={props.submissions} questions={props.questions} userQuestionStats={props.userQuestionStats} />}
         {/* --- 📍 2. 도전 과제 탭이 선택되었을 때 컴포넌트를 보여주도록 연결 --- */}
         {activeTab === 'achievements' && <AchievementsTab stats={props.stats} submissions={props.submissions} />}
       </div>

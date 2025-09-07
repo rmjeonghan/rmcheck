@@ -70,11 +70,8 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, assignmentId, onE
 
 		const correctAnswers = finalAnswers.filter((answer, index) => questions[index].answerIndex === answer).length;
 		const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
-		const answerResults: Record<string, "O" | "X"> = {};
-		questions.forEach((q, index) => {
-			const isCorrect = q.answerIndex === finalAnswers[index];
-			answerResults[q.id] = isCorrect ? "O" : "X";
-		});
+		console.log("finalAnswers:", finalAnswers);
+		console.log("questions:", questions);
 
 		// 유저 - 문제 최신 풀이 결과 업데이트
 
@@ -84,9 +81,11 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, assignmentId, onE
 			// stats 전체 맵 업데이트
 			const now = new Date();
 			const statsUpdate: Record<string, any> = {};
-			Object.entries(answerResults).forEach(([questionId, result]) => {
-				statsUpdate[questionId] = {
+			questions.forEach((q, index) => {
+				const result = q.answerIndex === finalAnswers[index] ? "O" : "X";
+				statsUpdate[q.id] = {
 					latestResult: result,
+					latestAnswer: finalAnswers[index],
 					answeredDatetime: now,
 				};
 			});
@@ -96,8 +95,6 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, assignmentId, onE
 				{ stats: statsUpdate }, // stats 맵 필드 안에 저장
 				{ merge: true }
 			);
-
-			console.log("✅ userQuestionStats 업데이트 완료");
 		} catch (error) {
 			console.error("❌ 업데이트 실패:", error);
 		}
