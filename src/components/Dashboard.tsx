@@ -1,7 +1,12 @@
 // src/components/Dashboard.tsx
 "use client";
 
-import { useState } from "react";
+// ▼▼▼ 1. useEffect, doc, getDoc, db, useAuth를 import합니다. ▼▼▼
+import { useState, useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase/config";
+import { useAuth } from "@/context/AuthContext";
+
 import { motion } from "framer-motion";
 import Header from "./Header";
 import AcademyAssignmentWidget from "./AcademyAssignmentWidget";
@@ -10,7 +15,7 @@ import SetupPromptWidget from "./SetupPromptWidget";
 import { useLearningPlan } from "@/hooks/useLearningPlan";
 import LoadingSpinner from "./LoadingSpinner";
 import LearningPlanSetupModal from "./LearningPlanSetupModal";
-import CurrentPlanWidget from "./CurrentPlanWidget"; // CurrentPlanWidget을 import합니다.
+import CurrentPlanWidget from "./CurrentPlanWidget";
 import { QuizStartParams } from "@/app/page";
 
 interface DashboardProps {
@@ -28,11 +33,44 @@ const itemVariants = {
 };
 
 const Dashboard = ({ onStartQuiz }: DashboardProps) => {
-  // ▼▼▼ plan을 useLearningPlan 훅에서 가져옵니다. ▼▼▼
-  const { plan, hasLearningPlan, isLoading } = useLearningPlan();
+  const { plan, hasLearningPlan, isLoading: isPlanLoading } = useLearningPlan();
   const [isModalOpen, setModalOpen] = useState(false);
+  
+  // ▼▼▼ 2. useAuth를 사용하고, 학원 등록 여부와 관련 로딩 상태를 추가합니다. ▼▼▼
+  const { user } = useAuth();
+  const [isEnrolledInAcademy, setIsEnrolledInAcademy] = useState(false);
+  const [isEnrollmentLoading, setIsEnrollmentLoading] = useState(true);
 
-  if (isLoading) {
+  // ▼▼▼ 3. 사용자의 학원 등록 상태를 확인하는 로직을 추가합니다. ▼▼▼
+  useEffect(() => {
+    // 사용자가 로그인 상태가 아니면 로딩을 멈춥니다.
+    if (!user) {
+      setIsEnrollmentLoading(false);
+      return;
+    }
+
+    const checkEnrollmentStatus = async () => {
+      try {
+        const studentDocRef = doc(db, 'students', user.uid);
+        const studentDoc = await getDoc(studentDocRef);
+
+        // 학생 정보가 존재하고, academyName 필드가 있으면 등록된 것으로 간주합니다.
+        if (studentDoc.exists() && studentDoc.data().academyName) {
+          setIsEnrolledInAcademy(true);
+        }
+      } catch (error) {
+        console.error("학원 등록 정보 조회 중 오류 발생:", error);
+        // 에러가 발생해도 위젯을 숨기지 않도록 기본값 false를 유지합니다.
+      } finally {
+        setIsEnrollmentLoading(false);
+      }
+    };
+
+    checkEnrollmentStatus();
+  }, [user]); // user 객체가 변경될 때마다 실행됩니다.
+
+  // ▼▼▼ 4. 학습 계획 로딩과 학원 등록 정보 로딩 상태를 모두 확인합니다. ▼▼▼
+  if (isPlanLoading || isEnrollmentLoading) {
     return <LoadingSpinner />;
   }
 
@@ -50,11 +88,13 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
           initial="hidden"
           animate="visible"
         >
-          <motion.div variants={itemVariants}>
-            <AcademyAssignmentWidget onStartQuiz={onStartQuiz} />
-          </motion.div>
+          {/* ▼▼▼ 5. isEnrolledInAcademy가 true일 때만 위젯을 렌더링합니다. ▼▼▼ */}
+          {isEnrolledInAcademy && (
+            <motion.div variants={itemVariants}>
+              <AcademyAssignmentWidget onStartQuiz={onStartQuiz} />
+            </motion.div>
+          )}
           
-          {/* ▼▼▼ plan이 null이 아닐 때만 CurrentPlanWidget을 렌더링하도록 수정합니다. ▼▼▼ */}
           {hasLearningPlan && plan ? (
             <motion.div variants={itemVariants}>
               <CurrentPlanWidget plan={plan} onEdit={handleEditPlan} />
@@ -71,7 +111,6 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
         </motion.main>
       </div>
       
-      {/* 모달이 열릴 때 plan 데이터를 initialPlan으로 전달합니다. */}
       <LearningPlanSetupModal
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}
@@ -82,4 +121,3 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
 };
 
 export default Dashboard;
-
