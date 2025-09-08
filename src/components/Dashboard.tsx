@@ -53,9 +53,10 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
       try {
         const studentDocRef = doc(db, 'students', user.uid);
         const studentDoc = await getDoc(studentDocRef);
+        const status = studentDoc.data()?.status || 'false';
 
         // 학생 정보가 존재하고, academyName 필드가 있으면 등록된 것으로 간주합니다.
-        if (studentDoc.exists() && studentDoc.data().academyName) {
+        if (studentDoc.exists() && studentDoc.data().academyName && status == "active") {
           setIsEnrolledInAcademy(true);
         }
       } catch (error) {
