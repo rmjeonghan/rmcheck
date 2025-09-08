@@ -16,6 +16,20 @@ import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
 import { Submission, Question } from '@/types';
 
+async function fetchDocsInChunks(col: string, ids: string[]) {
+  const results: any[] = [];
+  for (let i = 0; i < ids.length; i += 30) {
+    const chunk = ids.slice(i, i + 30);
+    const q = query(collection(db, col), where(documentId(), 'in', chunk));
+    const snapshot = await getDocs(q);
+    snapshot.forEach((doc) => {
+      results.push({ id: doc.id, ...doc.data() });
+    });
+  }
+  return results;
+}
+
+
 export const useMyPageData = () => {
   // ✅ null-safe 처리
   const auth = useAuth();
@@ -55,17 +69,7 @@ export const useMyPageData = () => {
         }
 
         // 2. submissions 문서들 가져오기
-        const fetchedSubs: Submission[] = [];
-        if (userSubmissions.length > 0) {
-          const subQuery = query(
-            collection(db, 'submissions'),
-            where(documentId(), 'in', userSubmissions)
-          );
-          const subSnapshot = await getDocs(subQuery);
-          subSnapshot.forEach((doc) => {
-            fetchedSubs.push({ id: doc.id, ...doc.data() } as Submission);
-          });
-        }
+        const fetchedSubs: Submission[] = await fetchDocsInChunks("submissions", userSubmissions);
 
         // createdAt 기준 정렬 (최신순)
         fetchedSubs.sort((a, b) => {
@@ -79,12 +83,8 @@ export const useMyPageData = () => {
         // 3. 제출 기록에 포함된 모든 문제 정보 가져오기
         const questionIds = [...new Set(fetchedSubs.flatMap((s) => s.questionIds))];
         if (questionIds.length > 0) {
-          const questionsMap = new Map<string, Question>();
-          const qQuery = query(collection(db, 'questionBank'), where(documentId(), 'in', questionIds));
-          const qSnapshot = await getDocs(qQuery);
-          qSnapshot.forEach((doc) => {
-            questionsMap.set(doc.id, { id: doc.id, ...doc.data() } as Question);
-          });
+          const fetchedQuestions: Question[] = await fetchDocsInChunks("questionBank", questionIds);
+          const questionsMap = new Map(fetchedQuestions.map(q => [q.id, q]));
           setQuestions(questionsMap);
         }
 
