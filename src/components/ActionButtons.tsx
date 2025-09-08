@@ -29,10 +29,10 @@ const ActionButtons = ({ onStartQuiz, selectedUnitIds }: ActionButtonsProps) => 
     setReviewModalOpen(true);
   };
 
-  const handleChapterSelectConfirm = (selectedIds: string[], questionCount: number) => {
-    setChapterModalOpen(false);
-    onStartQuiz({ mode: currentMode, unitIds: selectedIds, questionCount });
-  };
+  // const handleChapterSelectConfirm = (selectedIds: string[], questionCount: number) => {
+  //   setChapterModalOpen(false);
+  //   onStartQuiz({ mode: currentMode, unitIds: selectedIds, questionCount });
+  // };
 
   const handleQuestionCountSelectConfirm = (questionCount: number) => {
     setChapterModalOpen(false);
@@ -41,7 +41,7 @@ const ActionButtons = ({ onStartQuiz, selectedUnitIds }: ActionButtonsProps) => 
 
   const handleReviewModeSelect = (mode: 'review_all' | 'review_incorrect') => {
     setReviewModalOpen(false);
-    onStartQuiz({ mode, unitIds: [], questionCount: 30 });
+    onStartQuiz({ mode, unitIds: selectedUnitIds, questionCount: 30 });
   };
 
   return (
