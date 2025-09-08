@@ -17,7 +17,7 @@ export interface Assignment {
 }
 
 export interface WeeklyPlan {
-  week: number;
+  week: string; // "2025-01-01" 학습 주의 목요일
   // 예: [0, 2, 4] -> 일, 화, 목 학습 // 0:일, 1:월, 2:화, 3:수, 4:목, 5:금, 6:토
   days: number[];
   // 예: ["1-1-1", "1-1-2"]
@@ -31,9 +31,9 @@ export interface LearningPlan {
   totalWeeks: number;
   startDate: Timestamp;
   endDate: Timestamp;
-  weeklyPlans: WeeklyPlan[];
-  progress?: { [week: number]: number[] };
-  reviewProgress?: { [week: number]: number };
+  weeklyPlans: { [week: string]: WeeklyPlan };
+  progress?: { [week: string]: number[] };
+  reviewProgress?: { [week: string]: number };
   createdAt: Timestamp | FieldValue;
   updatedAt?: Timestamp | FieldValue; // updatedAt도 FieldValue를 가질 수 있도록 수정
 }
@@ -99,4 +99,4 @@ export interface User {
   totalQuestions?: number;
 }
 
-// ❌ [삭제] 파일 하단에 중복으로 선언되었던 LearningPlan, WeeklyPlan, Submission 인터페이스는 모두 제거했습니다.
+// ❌ [삭제] 파일 하단에 중복으로 선언되었던 LearningPlan, , Submission 인터페이스는 모두 제거했습니다.

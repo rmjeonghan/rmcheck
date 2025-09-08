@@ -12,7 +12,7 @@ import Header from "./Header";
 import AcademyAssignmentWidget from "./AcademyAssignmentWidget";
 import ActionButtons from "./ActionButtons";
 import SetupPromptWidget from "./SetupPromptWidget";
-import { useLearningPlan } from "@/hooks/useLearningPlan";
+import { useLearningPlan, getKSTThursday } from "@/hooks/useLearningPlan";
 import LoadingSpinner from "./LoadingSpinner";
 import LearningPlanSetupModal from "./LearningPlanSetupModal";
 import CurrentPlanWidget from "./CurrentPlanWidget";
@@ -35,7 +35,7 @@ const itemVariants = {
 const Dashboard = ({ onStartQuiz }: DashboardProps) => {
   const { plan, hasLearningPlan, isLoading: isPlanLoading } = useLearningPlan();
   const [isModalOpen, setModalOpen] = useState(false);
-  
+
   // ▼▼▼ 2. useAuth를 사용하고, 학원 등록 여부와 관련 로딩 상태를 추가합니다. ▼▼▼
   const { user } = useAuth();
   const [isEnrolledInAcademy, setIsEnrolledInAcademy] = useState(false);
@@ -94,7 +94,7 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
               <AcademyAssignmentWidget onStartQuiz={onStartQuiz} />
             </motion.div>
           )}
-          
+
           {hasLearningPlan && plan ? (
             <motion.div variants={itemVariants}>
               <CurrentPlanWidget plan={plan} onEdit={handleEditPlan} />
@@ -106,11 +106,11 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
           )}
 
           <motion.div variants={itemVariants}>
-            <ActionButtons onStartQuiz={onStartQuiz} />
+            <ActionButtons onStartQuiz={onStartQuiz} selectedUnitIds={plan?.weeklyPlans[getKSTThursday()].unitIds ? plan.weeklyPlans[getKSTThursday()].unitIds : []} />
           </motion.div>
         </motion.main>
       </div>
-      
+
       <LearningPlanSetupModal
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}

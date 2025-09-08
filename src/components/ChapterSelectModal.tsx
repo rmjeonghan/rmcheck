@@ -14,11 +14,11 @@ interface ChapterSelectModalProps {
   initialSelectedIds: string[];
 }
 
-const ChapterSelectModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  initialSelectedIds, 
+const ChapterSelectModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  initialSelectedIds,
   showQuestionCountSlider = false // 기본값을 false로 설정
 }: ChapterSelectModalProps) => {
   const [activeSubject, setActiveSubject] = useState("통합과학 1");
@@ -44,7 +44,7 @@ const ChapterSelectModal = ({
       return newSet;
     });
   };
-  
+
   const activeChapter = curriculumData[activeSubject as keyof typeof curriculumData]
     .find(c => c.id === activeChapterId);
 
@@ -77,12 +77,11 @@ const ChapterSelectModal = ({
                 <button
                   key={subject}
                   onClick={() => {
-                      setActiveSubject(subject);
-                      setActiveChapterId(curriculumData[subject as keyof typeof curriculumData][0].id);
+                    setActiveSubject(subject);
+                    setActiveChapterId(curriculumData[subject as keyof typeof curriculumData][0].id);
                   }}
-                  className={`px-4 py-3 font-semibold transition-colors ${
-                    activeSubject === subject ? "border-b-2 border-indigo-500 text-indigo-600" : "text-slate-500"
-                  }`}
+                  className={`px-4 py-3 font-semibold transition-colors ${activeSubject === subject ? "border-b-2 border-indigo-500 text-indigo-600" : "text-slate-500"
+                    }`}
                 >
                   {subject}
                 </button>
@@ -97,9 +96,8 @@ const ChapterSelectModal = ({
                   <button
                     key={chapter.id}
                     onClick={() => setActiveChapterId(chapter.id)}
-                    className={`w-full text-left p-4 font-medium transition-colors ${
-                      activeChapterId === chapter.id ? "bg-indigo-100 text-indigo-700" : "hover:bg-slate-100"
-                    }`}
+                    className={`w-full text-left p-4 font-medium transition-colors ${activeChapterId === chapter.id ? "bg-indigo-100 text-indigo-700" : "hover:bg-slate-100"
+                      }`}
                   >
                     {chapter.name}
                   </button>
@@ -110,20 +108,20 @@ const ChapterSelectModal = ({
               <div className="w-2/3 p-6 overflow-y-auto">
                 <h3 className="text-lg font-bold mb-4">{activeChapter?.name}</h3>
                 <div className="space-y-3">
-                    {activeChapter?.subChapters.map(sub => {
-                        const [id, name] = sub.split(': ');
-                        return (
-                            <label key={id} className="flex items-center p-3 rounded-md hover:bg-slate-50 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    checked={selectedIds.has(id)}
-                                    onChange={(e) => handleCheckboxChange(id, e.target.checked)}
-                                />
-                                <span className="ml-3 text-gray-700">{name}</span>
-                            </label>
-                        )
-                    })}
+                  {activeChapter?.subChapters.map(sub => {
+                    const [id, name] = sub.split(': ');
+                    return (
+                      <label key={id} className="flex items-center p-3 rounded-md hover:bg-slate-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedIds.has(id)}
+                          onChange={(e) => handleCheckboxChange(id, e.target.checked)}
+                        />
+                        <span className="ml-3 text-gray-700">{name}</span>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -146,13 +144,13 @@ const ChapterSelectModal = ({
                 />
               </div>
             )}
-            
+
             {/* Footer */}
             <div className="p-4 bg-slate-50 border-t flex justify-end items-center">
               <span className="text-sm text-slate-600 mr-4">총 {selectedIds.size}개 선택됨</span>
               {/* --- 📍 2. onConfirm 함수에 questionCount 인자 추가 --- */}
-              <button 
-                onClick={() => onConfirm(Array.from(selectedIds), questionCount)} 
+              <button
+                onClick={() => onConfirm(Array.from(selectedIds), questionCount)}
                 className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700"
               >
                 {showQuestionCountSlider ? '시험 시작' : '선택 완료'}

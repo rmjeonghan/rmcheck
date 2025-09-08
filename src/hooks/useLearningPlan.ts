@@ -8,6 +8,33 @@ import { useAuth } from '@/context/AuthContext';
 import { LearningPlan, WeeklyPlan, QuizMode } from '@/types';
 import { differenceInWeeks, startOfDay, getDay } from 'date-fns';
 
+export const getKSTThursday = (): string => {
+  // KST(UTC+9) 기준으로 이번 주(일~토)의 목요일 날짜 YYYY-MM-DD
+  const now = new Date();
+
+  // 현재 로컬시간 → KST 시각으로 보정한 타임스탬프
+  const kstShiftMinutes = 540 + now.getTimezoneOffset(); // 540 = 9*60
+  const tsKST = now.getTime() + kstShiftMinutes * 60_000;
+
+  // "KST로 해석되는" Date 객체 (UTC 게터를 쓰면 KST의 달력값을 얻을 수 있음)
+  const kstDate = new Date(tsKST);
+
+  // 일(0)~토(6)에서 목요일 인덱스는 4
+  const dow = kstDate.getUTCDay(); // KST 요일
+  const deltaToThu = 4 - dow;
+
+  // 이번 주 목요일의 KST 달력 날짜
+  const thuKST = new Date(tsKST);
+  thuKST.setUTCDate(thuKST.getUTCDate() + deltaToThu);
+
+  // YYYY-MM-DD 문자열로 포맷
+  const y = thuKST.getUTCFullYear();
+  const m = String(thuKST.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(thuKST.getUTCDate()).padStart(2, "0");
+  const kstThursday = `${y}-${m}-${d}`;
+  return kstThursday;
+}
+
 export const useLearningPlan = () => {
   const { user } = useAuth();
   const [plan, setPlan] = useState<LearningPlan | null>(null);
@@ -41,7 +68,7 @@ export const useLearningPlan = () => {
     return () => unsubscribe(); // 컴포넌트가 언마운트될 때 실시간 리스너를 정리합니다.
   }, [user]);
 
-  const savePlan = async (weeklyPlans: WeeklyPlan[]) => {
+  const savePlan = async (weeklyPlan: WeeklyPlan) => {
     if (!user) {
       setError("로그인 후 이용 가능합니다.");
       return;
@@ -53,7 +80,7 @@ export const useLearningPlan = () => {
       
       const newPlanData: Partial<LearningPlan> = {
         userId: user.uid,
-        weeklyPlans,
+        weeklyPlans: { [weeklyPlan.week]: weeklyPlan },
         updatedAt: serverTimestamp(),
       };
 

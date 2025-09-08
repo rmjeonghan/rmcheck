@@ -47,6 +47,7 @@ export default function Home() {
   if (!mounted) return null;
 
   const startQuiz = (params: QuizStartParams) => {
+    console.log("Starting quiz with params:", params)
     setQuizStartParams(params);
     setResultsState(null);
   };
