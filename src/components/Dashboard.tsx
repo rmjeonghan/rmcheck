@@ -107,7 +107,7 @@ const Dashboard = ({ onStartQuiz }: DashboardProps) => {
           )}
 
           <motion.div variants={itemVariants}>
-            <ActionButtons onStartQuiz={onStartQuiz} selectedUnitIds={plan?.weeklyPlans[getKSTThursday()].unitIds ? plan.weeklyPlans[getKSTThursday()].unitIds : []} />
+            <ActionButtons onStartQuiz={onStartQuiz} selectedUnitIds={plan?.weeklyPlans[getKSTThursday()].unitIds ? plan.weeklyPlans[getKSTThursday()].unitIds : []} hasLearningPlan={hasLearningPlan} />
           </motion.div>
         </motion.main>
       </div>

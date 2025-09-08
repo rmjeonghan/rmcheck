@@ -12,6 +12,7 @@ interface ChapterSelectModalProps {
   onConfirm: (selectedIds: string[], questionCount: number) => void;
   showQuestionCountSlider?: boolean;
   initialSelectedIds: string[];
+  forExam?: boolean;
 }
 
 const ChapterSelectModal = ({
@@ -19,12 +20,18 @@ const ChapterSelectModal = ({
   onClose,
   onConfirm,
   initialSelectedIds,
-  showQuestionCountSlider = false // 기본값을 false로 설정
+  showQuestionCountSlider = false,
+  forExam = false,
 }: ChapterSelectModalProps) => {
   const [activeSubject, setActiveSubject] = useState("통합과학 1");
   const [activeChapterId, setActiveChapterId] = useState("1-1");
   const [selectedIds, setSelectedIds] = useState(new Set(initialSelectedIds));
   const [questionCount, setQuestionCount] = useState(30);
+
+  // initialSelectedIds에서 sort했을 때 min item
+  const minSelectedId = initialSelectedIds.reduce((min, id) => (id < min ? id : min), initialSelectedIds[0]);
+  // minSelectedId를 '-'로 split
+  const [initialSubject, initialChapter1, initialChapter2] = minSelectedId ? minSelectedId.split('-') : ["1", "1", "1"];
 
   // 모달이 열릴 때 초기 선택된 ID로 상태를 동기화합니다.
   useEffect(() => {
@@ -32,6 +39,13 @@ const ChapterSelectModal = ({
       setSelectedIds(new Set(initialSelectedIds));
     }
   }, [isOpen, initialSelectedIds]);
+
+  useEffect(() => {
+    if (isOpen && minSelectedId) {
+      setActiveSubject(`통합과학 ${initialSubject}`);
+      setActiveChapterId(`${initialSubject}-${initialChapter1}`);
+    }
+  }, [isOpen]);
 
   const handleCheckboxChange = (id: string, isChecked: boolean) => {
     setSelectedIds(prev => {
@@ -64,11 +78,21 @@ const ChapterSelectModal = ({
             className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-xl font-bold">학습 단원 선택</h2>
-              <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100">
-                <X className="w-6 h-6 text-slate-500" />
-              </button>
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">학습 단원 선택</h2>
+                <button
+                  onClick={onClose}
+                  className="p-1 rounded-full hover:bg-slate-100"
+                >
+                  <X className="w-6 h-6 text-slate-500" />
+                </button>
+              </div>
+              {forExam && (
+                <p className="mt-2 text-sm text-indigo-600 font-medium">
+                  학습 계획에서 설정한 단원을 변경할 수 있습니다.
+                </p>
+              )}
             </div>
 
             {/* Tabs */}
