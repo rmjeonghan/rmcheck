@@ -28,7 +28,6 @@ const CurrentPlanWidget = ({ plan, onEdit }: CurrentPlanWidgetProps) => {
   if (!plan || !plan.weeklyPlans) {
     return null;
   }
-  console.log("CurrentPlanWidget에 전달된 plan:", plan);
 
   // 이번 주 목요일 키 (YYYY-MM-DD)
   const thursdayKey = getKSTThursday();
@@ -97,8 +96,8 @@ const CurrentPlanWidget = ({ plan, onEdit }: CurrentPlanWidgetProps) => {
               <div
                 key={index}
                 className={`p-2 rounded-lg text-center text-sm font-bold ${isCompleted
-                    ? "bg-green-100 text-green-700"
-                    : "bg-blue-100 text-blue-700"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-blue-100 text-blue-700"
                   }`}
               >
                 {isCompleted ? '✅' : day}
