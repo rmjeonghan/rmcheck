@@ -74,6 +74,9 @@ export const useLearningPlan = () => {
       return;
     }
     setIsLoading(true);
+    // weeklyPlan에 progress, reviewProgress 초기값 추가
+    weeklyPlan.progress = [];
+    weeklyPlan.reviewProgress = 0;
     try {
       const planRef = doc(db, 'learningPlans', user.uid);
       const docSnap = await getDoc(planRef);
@@ -87,8 +90,6 @@ export const useLearningPlan = () => {
       // 문서가 존재하지 않을 때만 createdAt, progress 등의 초기값을 설정합니다.
       if (!docSnap.exists()) {
         newPlanData.createdAt = serverTimestamp();
-        newPlanData.progress = {};
-        newPlanData.reviewProgress = {};
       }
 
       await setDoc(planRef, newPlanData, { merge: true });
@@ -109,7 +110,6 @@ export const useLearningPlan = () => {
       ? startOfDay(plan.createdAt.toDate())
       : startOfDay(new Date());
     const today = startOfDay(new Date());
-    const currentWeekNumber = differenceInWeeks(today, planStartDate) + 1;
     const currentDayIndex = getDay(today);
 
     const isReview = quizMode === 'review_all' || quizMode === 'review_incorrect';
@@ -118,16 +118,16 @@ export const useLearningPlan = () => {
       const planRef = doc(db, 'learningPlans', user.uid);
       
       if (isReview) {
-        const currentReviewCount = plan.reviewProgress?.[currentWeekNumber] || 0;
+        const currentReviewCount = plan.weeklyPlans[getKSTThursday()].reviewProgress || 0;
         await updateDoc(planRef, {
-          [`reviewProgress.${currentWeekNumber}`]: currentReviewCount + 1,
+          [`weeklyPlans.${getKSTThursday()}.reviewProgress`]: currentReviewCount + 1,
         });
       } else {
-        const weekProgress = plan.progress?.[currentWeekNumber] || [];
+        const weekProgress = plan.weeklyPlans[getKSTThursday()].progress || [];
         if (!weekProgress.includes(currentDayIndex)) {
             weekProgress.push(currentDayIndex);
             await updateDoc(planRef, {
-                [`progress.${currentWeekNumber}`]: weekProgress,
+                [`weeklyPlans.${getKSTThursday()}.progress`]: weekProgress,
             });
         }
       }

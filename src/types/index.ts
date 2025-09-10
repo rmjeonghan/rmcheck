@@ -22,6 +22,8 @@ export interface WeeklyPlan {
   days: number[];
   // 예: ["1-1-1", "1-1-2"]
   unitIds: string[];
+  progress?: number[];
+  reviewProgress?: number;
 }
 
 // 📌 [수정] 중복 정의를 합치고, createdAt/updatedAt에 FieldValue 타입을 추가했습니다.
@@ -32,8 +34,6 @@ export interface LearningPlan {
   startDate: Timestamp;
   endDate: Timestamp;
   weeklyPlans: { [week: string]: WeeklyPlan };
-  progress?: { [week: string]: number[] };
-  reviewProgress?: { [week: string]: number };
   createdAt: Timestamp | FieldValue;
   updatedAt?: Timestamp | FieldValue; // updatedAt도 FieldValue를 가질 수 있도록 수정
 }
@@ -89,6 +89,7 @@ export interface User {
   photoURL?: string | null;
   name?: string;
   academyName?: string;
+  academyId?: string;
   role?: 'student' | 'admin' | 'teacher';
   createdAt?: Timestamp;
   learningPlan?: {
