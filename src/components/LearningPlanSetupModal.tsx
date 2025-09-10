@@ -20,7 +20,7 @@ const LearningPlanSetupModal = ({ isOpen, onClose, initialPlan }: LearningPlanSe
   const { savePlan } = useLearningPlan();
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>({
     week: getKSTThursday(),
-    days: [1, 3, 5],
+    days: [1, 2, 3, 4, 5, 6], // 기본값: 월~토
     unitIds: [],
   });
   const [isChapterModalOpen, setChapterModalOpen] = useState(false);
