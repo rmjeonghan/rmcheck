@@ -10,7 +10,6 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const KakaoLoginClient = () => {
-  console.log("KakaoLoginClient 호출됨");
   const router = useRouter();
   const searchParams = useSearchParams();
 

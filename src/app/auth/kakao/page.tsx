@@ -1,6 +1,6 @@
 // src/app/auth/kakao/page.tsx
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
+// export const dynamic = "force-dynamic";
+// export const fetchCache = "force-no-store";
 
 import { Suspense } from 'react';
 import KakaoLoginClient from './KakaoLoginClient';
