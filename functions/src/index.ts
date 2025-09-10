@@ -26,16 +26,24 @@ const metaDocId = "--META--";
 // =================================================================
 
 export const getKakaoLoginUrl = onRequest({ region: "asia-northeast3" }, (req, res) => {
-  // 공통 CORS 헤더
-  res.set("Access-Control-Allow-Origin", "https://rmcheck-4e79c.web.app");
+  const allowedOrigins = [
+    "https://rmcheck-4e79c.web.app",
+    "https://localhost:3000",
+    "http://localhost:3000",
+  ];
+
+  const origin = req.get("Origin");
+  if (origin && allowedOrigins.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+  }
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  // Preflight 요청 (OPTIONS)이면 여기서 바로 응답 종료
   if (req.method === "OPTIONS") {
-    res.status(204).send(""); 
+    res.status(204).send("");
     return;
   }
+
 
   if (!kakaoRestApiKey || !kakaoRedirectUri) {
     logger.error("Kakao environment variables are not set.");
@@ -87,7 +95,7 @@ export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) 
       };
       kakao_account: {
         email: string;
-      }
+      };
     }
 
     const userInfoUrl = "https://kapi.kakao.com/v2/user/me";
@@ -118,7 +126,6 @@ export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) 
     throw new HttpsError("internal", "Kakao authentication failed.");
   }
 });
-
 
 // =================================================================
 // --- 시험지 생성 함수 (모든 기능 및 예외처리 최종 버전) ---
