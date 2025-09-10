@@ -31,25 +31,37 @@ export const useAssignments = () => {
 
         const studentData = studentDoc.data() as User;
         const academyName = studentData.academyName;
+        const academyId = studentData.academyId;
 
-        if (!academyName) {
+        if (!academyId) {
           setAssignments([]);
           setIsLoading(false);
           return;
         }
 
         // 2. 학원의 모든 과제와 학생의 과제 완료 기록을 동시에 가져오기
+        // TODO 스캔하지 않고 효율적인 쿼리로..
         const [academyAssignmentsSnapshot, studentAssignmentsSnapshot] = await Promise.all([
           getDocs(query(
             collection(db, 'academyAssignments'),
-            where('academyName', '==', academyName),
-            orderBy('dueDate', 'asc')
+            where('academyId', '==', academyId)
+            // orderBy('dueDate', 'asc')  // 인덱스 필요하므로 제거
           )),
           getDocs(query(
             collection(db, 'studentAssignments'),
             where('studentId', '==', user.uid)
           ))
         ]);
+        // 스냅샷에서 데이터 뽑기 + 정렬
+        const academyAssignments = academyAssignmentsSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() as any }))
+          .sort((a, b) => {
+            const aDate = a.dueDate?.toDate?.() ?? new Date(0); // Timestamp → JS Date 변환
+            const bDate = b.dueDate?.toDate?.() ?? new Date(0);
+            return aDate.getTime() - bDate.getTime();
+          });
+
+        console.log("정렬된 학원 과제:", academyAssignments);
 
         // 3. 학생의 과제 완료 기록을 쉽게 찾을 수 있도록 Map으로 변환
         const studentCompletedMap = new Map<string, StudentAssignment>();

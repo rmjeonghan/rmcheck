@@ -26,7 +26,10 @@ const Login = () => {
       const userRef = doc(db, 'students', user.uid);
       const userDoc = await getDoc(userRef);
 
-      if (!userDoc.exists()) {
+      // 그냥 document의 존재로 판단하다가 파베쪽 유저 존재 유무 판단에서 버그가 발생해 학생 이름 존재 유무로 판단하도록 변경
+      const hasStudentName = userDoc.exists() && typeof userDoc.data()?.studentName === 'string' && userDoc.data()?.studentName.trim() !== '';
+
+      if (!hasStudentName) {
         // 새 사용자 정보 생성
         await setDoc(userRef, {
           studentName: user.displayName,
@@ -70,7 +73,6 @@ const Login = () => {
     try {
       // https://getkakaologinurl-3xc66hnuaa-du.a.run.app
       // https://asia-northeast3-rmcheck-4e79c.cloudfunctions.net/getKakaoLoginUrl
-      console.log("fetch 드가자잇");
       const res = await fetch("https://getkakaologinurl-3xc66hnuaa-du.a.run.app", {
         method: "GET",
         headers: {

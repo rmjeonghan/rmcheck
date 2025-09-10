@@ -54,8 +54,8 @@ const CurrentPlanWidget = ({ plan, onEdit }: CurrentPlanWidgetProps) => {
   const mainChapterNames = [...new Set(currentWeekPlan.unitIds.map(getMainChapterName))].join(', ');
 
   // 진행도: progress와 reviewProgress도 동일하게 날짜 키로 접근
-  const weekProgress = (plan.progress?.[thursdayKey] as number[]) || [];
-  const reviewCount = (plan.reviewProgress?.[thursdayKey] as number) || 0;
+  const weekProgress = currentWeekPlan?.progress || [];
+  const reviewCount = currentWeekPlan?.reviewProgress || 0;
 
   return (
     <div className="p-6 bg-white rounded-2xl shadow-lg border border-slate-200 space-y-4">

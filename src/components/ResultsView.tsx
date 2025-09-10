@@ -10,7 +10,7 @@ import { CheckCircle, XCircle, Home } from 'lucide-react';
 import IncorrectAnswer from './IncorrectAnswer';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/firebase/config';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 // --- ▼ 1. Props 인터페이스에서 academyName 제거 ---
 interface ResultsViewProps {
@@ -23,7 +23,7 @@ interface ResultsViewProps {
 const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsViewProps) => {
   const { user } = useAuth();
   const [showResults, setShowResults] = useState(false);
-  
+
   const correctCount = submission.answers.filter((ans, i) => ans === questions[i].answerIndex).length;
   const incorrectCount = questions.length - correctCount;
   const score = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
@@ -35,17 +35,29 @@ const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsVie
     const saveAssignmentResult = async () => {
       // --- ▼ 2. user 객체에서 직접 academyName을 가져옵니다. ---
       const academyName = (user as User)?.academyName;
-      
+
       if (assignmentId && user && academyName) {
+        // 'academyAssignments' 컬렉션에서 assignmentId로 문서 가져온 다음 'classId' 필드 추출
+        const academyAssignmentsRef = doc(db, 'academyAssignments', assignmentId);
+        const academyAssignmentSnap = await getDoc(academyAssignmentsRef);
+        if (!academyAssignmentSnap.exists()) {
+          console.error("해당 과제 문서가 존재하지 않습니다.");
+          return;
+        }
+        const classId = academyAssignmentSnap.data().classId;
+        const academyId = academyAssignmentSnap.data().academyId;
+
         try {
           const docId = `${user.uid}_${assignmentId}`;
           const studentAssignmentRef = doc(db, 'studentAssignments', docId);
           await setDoc(studentAssignmentRef, {
             studentId: user.uid,
             assignmentId: assignmentId,
+            academyId: academyId,
             academyName: academyName,
             isCompleted: true,
             completedAt: serverTimestamp(),
+            classId: classId,
             score: score,
           });
           console.log('과제 결과가 성공적으로 저장되었습니다.');
@@ -56,13 +68,13 @@ const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsVie
     };
 
     saveAssignmentResult();
-  // --- ▼ 3. useEffect 의존성 배열에서 academyName 제거 ---
+    // --- ▼ 3. useEffect 의존성 배열에서 academyName 제거 ---
   }, [assignmentId, user, score]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowResults(true);
-    }, 2500); 
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -87,20 +99,20 @@ const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsVie
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 overflow-hidden">
       {!showResults ? (
         <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-            <h1 className="text-3xl font-bold text-slate-700">결과를 채점하고 있어요...</h1>
+          <h1 className="text-3xl font-bold text-slate-700">결과를 채점하고 있어요...</h1>
         </motion.div>
       ) : (
         <>
           <Lottie animationData={confettiAnimation} loop={false} className="absolute top-0 left-0 w-full h-full" />
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }} 
-            animate={{ opacity: 1, y: 0 }} 
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="w-full max-w-2xl bg-white p-8 rounded-2xl shadow-lg text-center z-10"
           >
             <h1 className="text-3xl font-bold text-slate-800 mb-2">수고하셨습니다!</h1>
             <p className="text-slate-500 mb-8">오늘의 학습 결과예요.</p>
-            
+
             <div className="text-7xl font-bold text-indigo-600 mb-6 flex items-center justify-center">
               <motion.p>{rounded}</motion.p>
               <span className="text-4xl text-slate-500 pt-5">%</span>

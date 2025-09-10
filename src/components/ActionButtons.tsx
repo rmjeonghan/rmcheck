@@ -23,8 +23,10 @@ const ActionButtons = ({
   hasLearningPlan,
 }: ActionButtonsProps) => {
   const [isChapterModalOpen, setChapterModalOpen] = useState(false);
+  const [isQuestionCountModalOpen, setQuestionCountModalOpen] = useState(false);
   const [isReviewModalOpen, setReviewModalOpen] = useState(false);
   const [currentMode, setCurrentMode] = useState<QuizMode>("new");
+  const [reviewMode, setReviewMode] = useState<"review_all" | "review_incorrect">("review_all");
 
   const handleNewQuizClick = (mode: "new" | "new_review") => {
     if (!hasLearningPlan) return; // 방어
@@ -48,8 +50,15 @@ const ActionButtons = ({
   };
 
   const handleReviewModeSelect = (mode: "review_all" | "review_incorrect") => {
+    setReviewMode(mode);
     setReviewModalOpen(false);
-    onStartQuiz({ mode, unitIds: selectedUnitIds, questionCount: 30 });
+    setQuestionCountModalOpen(true);
+    // onStartQuiz({ mode, unitIds: selectedUnitIds, questionCount: 30 });
+  };
+
+  const handleRevieModeQuestionCountSelectConfirm = (questionCount: number) => {
+    setQuestionCountModalOpen(false);
+    onStartQuiz({ mode: reviewMode, unitIds: selectedUnitIds, questionCount });
   };
 
   return (
@@ -118,6 +127,12 @@ const ActionButtons = ({
         isOpen={isReviewModalOpen}
         onClose={() => setReviewModalOpen(false)}
         onSelect={handleReviewModeSelect}
+      />
+      <QuestionCountSelectModal
+        isOpen={isQuestionCountModalOpen}
+        onClose={() => setQuestionCountModalOpen(false)}
+        onConfirm={handleRevieModeQuestionCountSelectConfirm}
+        initialCount={30}
       />
     </>
   );
