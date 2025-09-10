@@ -27,7 +27,7 @@ const JoinAcademyWidget = () => {
   }, [user]);
 
   const getStatusContent = () => {
-    if (!studentInfo) return null;
+    if (!studentInfo) return <p>계정 정보에 문제가 생겼습니다. 관리자에게 문의해주세요.</p>;
     if (studentInfo.academyName) {
       if (studentInfo.status === 'active') {
         return (
@@ -38,7 +38,7 @@ const JoinAcademyWidget = () => {
         );
       }
       if (studentInfo.status === 'pending') {
-         return (
+        return (
           <div className="flex items-center space-x-2 text-orange-500">
             <Clock size={20} />
             <span className="font-semibold">{studentInfo.academyName} 승인 대기중</span>
