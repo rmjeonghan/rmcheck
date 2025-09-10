@@ -2,6 +2,7 @@
 
 .firebase/*
 .firebase/rmcheck-4e79c/*
+env.rmcheck-4e79c
 
 # dependencies
 /node_modules

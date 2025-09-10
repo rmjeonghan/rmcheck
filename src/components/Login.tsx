@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { GoogleAuthProvider, signInWithPopup, User } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import toast from 'react-hot-toast';
@@ -50,9 +50,9 @@ const Login = () => {
     const provider = new GoogleAuthProvider();
     handleSocialLogin(provider);
   };
-  
+
   // 카카오 로그인은 추가 설정이 필요하여 우선 기능만 정의합니다.
-  const onKakaoLogin = async () => {
+  /*const onKakaoLogin = async () => {
     setIsLoading(true);
     try {
       const getKakaoLoginUrl = httpsCallable(functions, 'getKakaoLoginUrl');
@@ -64,7 +64,35 @@ const Login = () => {
       toast.error('카카오 로그인에 실패했습니다.');
       setIsLoading(false);
     }
+  };*/
+  const onKakaoLogin = async () => {
+    setIsLoading(true);
+    try {
+      // https://getkakaologinurl-3xc66hnuaa-du.a.run.app
+      // https://asia-northeast3-rmcheck-4e79c.cloudfunctions.net/getKakaoLoginUrl
+      console.log("fetch 드가자잇");
+      const res = await fetch("https://getkakaologinurl-3xc66hnuaa-du.a.run.app", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const { auth_url } = data as { auth_url: string };
+
+      window.location.href = auth_url; // 카카오 로그인 페이지로 이동
+    } catch (error) {
+      console.error("카카오 로그인 URL 가져오기 오류:", error);
+      toast.error("카카오 로그인에 실패했습니다.");
+      setIsLoading(false);
+    }
   };
+
 
   if (isLoading) {
     return <LoadingSpinner />;

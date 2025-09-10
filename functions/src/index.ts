@@ -26,25 +26,37 @@ const metaDocId = "--META--";
 // =================================================================
 
 export const getKakaoLoginUrl = onRequest({ region: "asia-northeast3" }, (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  // 공통 CORS 헤더
+  res.set("Access-Control-Allow-Origin", "https://rmcheck-4e79c.web.app");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  // Preflight 요청 (OPTIONS)이면 여기서 바로 응답 종료
+  if (req.method === "OPTIONS") {
+    res.status(204).send(""); 
+    return;
+  }
 
   if (!kakaoRestApiKey || !kakaoRedirectUri) {
     logger.error("Kakao environment variables are not set.");
     res.status(500).json({ error: "Server configuration error." });
     return;
   }
-  
-  const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoRestApiKey}&redirect_uri=${kakaoRedirectUri}&response_type=code`;
+
+  const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoRestApiKey}&redirect_uri=${kakaoRedirectUri}/auth/kakao&response_type=code`;
   res.json({ auth_url: kakaoAuthUrl });
 });
 
+
 export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) => {
+  logger.info("kakaoLogin called with data:", request.data);
   if (!kakaoRestApiKey || !kakaoRedirectUri || !kakaoClientSecret) {
     logger.error("Kakao API Key, Redirect URI, or Client Secret is not set in environment variables.");
     throw new HttpsError("internal", "Server configuration error.");
   }
 
   const code = request.data.code;
+  logger.info("Received authorization code in kakaoLogin:", code);
   if (!code) {
     throw new HttpsError("invalid-argument", "Authorization code is required.");
   }
@@ -53,7 +65,7 @@ export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) 
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: kakaoRestApiKey,
-    redirect_uri: kakaoRedirectUri,
+    redirect_uri: kakaoRedirectUri + "/auth/kakao",
     client_secret: kakaoClientSecret,
     code: code,
   }).toString();
@@ -144,6 +156,10 @@ export const generateExam = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
     }
+    logger.info("카카오 환경변수 정보 로깅");
+    logger.info(`KAKAO_REST_API_KEY: ${kakaoRestApiKey}`);
+    logger.info(`KAKAO_REDIRECT_URI: ${kakaoRedirectUri}`);
+    logger.info(`KAKAO_CLIENT_SECRET: ${kakaoClientSecret}`);
 
     const uid = request.auth.uid;
     const { unitIds, questionCount = 30, mode = "new" } = request.data;
