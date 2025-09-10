@@ -110,14 +110,40 @@ export const kakaoLogin = onCall({ region: "asia-northeast3" }, async (request) 
 
     try {
       await getAuth().updateUser(uid, { displayName, email });
+
+      // 🔎 Firestore에서 해당 유저 문서 조회
+      const db = getFirestore();
+      const userRef = db.collection("students").doc(uid);
+      const studentDoc = await userRef.get();
+
+      let hasStudentName = false;
+      if (studentDoc.exists) {
+        const data = studentDoc.data();
+        if (data && typeof data.studentName === "string" && data.studentName.trim().length > 0) {
+          hasStudentName = true;
+        }
+      }
+
+      if (!hasStudentName) {
+        // 새 사용자 정보 생성
+        await userRef.set({
+          studentName: displayName,
+          email: email,
+          createdAt: FieldValue.serverTimestamp(),
+          status: "active", // 기본 상태를 'active'로 설정
+          isDeleted: false,
+          academyName: null, // 초기에는 학원 없음
+        });
+      }
+
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
+      if (error.code === "auth/user-not-found") {
         await getAuth().createUser({ uid, displayName, email });
       } else {
         throw error;
       }
     }
-    
+
     const firebaseToken = await getAuth().createCustomToken(uid);
     return { firebase_token: firebaseToken };
 
