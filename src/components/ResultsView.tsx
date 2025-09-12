@@ -47,6 +47,9 @@ const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsVie
         const classId = academyAssignmentSnap.data().classId;
         const academyId = academyAssignmentSnap.data().academyId;
 
+        // --- ▼ [수정 1] 점수 형식을 "정답 개수/전체 문항 수" 문자열로 생성 ---
+        const scoreString = `${correctCount}/${questions.length}`;
+
         try {
           const docId = `${user.uid}_${assignmentId}`;
           const studentAssignmentRef = doc(db, 'studentAssignments', docId);
@@ -58,7 +61,11 @@ const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsVie
             isCompleted: true,
             completedAt: serverTimestamp(),
             classId: classId,
-            score: score,
+            // --- ▼ [수정 1] 문자열 형식의 점수로 저장 ---
+            score: scoreString,
+            // --- ▼ [수정 2] questionIds와 answers 필드 추가 ---
+            questionIds: questions.map(q => q.id),
+            answers: submission.answers,
           });
           console.log('과제 결과가 성공적으로 저장되었습니다.');
         } catch (error) {
@@ -68,8 +75,8 @@ const ResultsView = ({ submission, questions, onExit, assignmentId }: ResultsVie
     };
 
     saveAssignmentResult();
-    // --- ▼ 3. useEffect 의존성 배열에서 academyName 제거 ---
-  }, [assignmentId, user, score]);
+    // --- ▼ [수정 3] useEffect 의존성 배열 업데이트 ---
+  }, [assignmentId, user, score, correctCount, questions, submission.answers]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
