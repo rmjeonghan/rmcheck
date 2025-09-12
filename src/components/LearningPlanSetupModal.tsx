@@ -38,7 +38,7 @@ const LearningPlanSetupModal = ({ isOpen, onClose, initialPlan }: LearningPlanSe
           unitIds: _plan.unitIds ?? [],    // 기본값 보장
         });
       } else {
-        setWeeklyPlan({ week: getKSTThursday(), days: [1, 3, 5], unitIds: [] });
+        setWeeklyPlan({ week: getKSTThursday(), days: [1, 2, 3, 4, 5], unitIds: [] });
       }
     }
   }, [isOpen, initialPlan]);
