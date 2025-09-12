@@ -34,7 +34,7 @@ const LearningPlanSetupModal = ({ isOpen, onClose, initialPlan }: LearningPlanSe
       if (initialPlan && _plan) {
         setWeeklyPlan({
           week: thursday,
-          days: _plan.days ?? [1, 3, 5],   // 기본값 보장
+          days: _plan.days ?? [1, 2, 3, 4, 5],   // 기본값 보장
           unitIds: _plan.unitIds ?? [],    // 기본값 보장
         });
       } else {

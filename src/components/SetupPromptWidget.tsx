@@ -15,7 +15,7 @@ const SetupPromptWidget = ({ onSetupClick }: SetupPromptWidgetProps) => {
         나만의 학습 계획을 만들어보세요!
       </h2>
       <p className="text-slate-500 mb-6">
-        AI가 목표에 맞춰 최적의 학습 경로를 추천해 드려요.
+        학습할 요일과 단원을 선택할 수 있습니다.
       </p>
       <motion.button
         onClick={onSetupClick}
