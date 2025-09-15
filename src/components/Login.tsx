@@ -113,7 +113,7 @@ const Login = () => {
           animate={{ scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2, type: 'spring', stiffness: 150 }}
         >
-          <h1 className="text-4xl font-bold text-gray-800 tracking-tight">RuleMakers</h1>
+          <h1 className="text-4xl font-bold text-gray-800 tracking-tight">통합과학</h1>
           <p className="mt-2 text-slate-500">Daily Test</p>
         </motion.div>
 
