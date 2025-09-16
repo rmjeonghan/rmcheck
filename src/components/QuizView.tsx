@@ -12,166 +12,198 @@ import LoadingSpinner from './LoadingSpinner';
 import { doc, collection, serverTimestamp, Timestamp, addDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
+// ✅ *** [추가된 부분 1/2] *** curriculum 데이터를 가져옵니다.
+import { curriculumData } from '@/data/curriculum';
 
 interface QuizViewProps {
-	mode: QuizMode;
-	questionCount: number;
-	unitIds: string[];
-	mainChapter?: string;
-	assignmentId?: string;
-	onExit: () => void;
-	onQuizComplete: (submission: Submission, questions: Question[], assignmentId?: string) => void;
+    mode: QuizMode;
+    questionCount: number;
+    unitIds: string[];
+    mainChapter?: string;
+    assignmentId?: string;
+    onExit: () => void;
+    onQuizComplete: (submission: Submission, questions: Question[], assignmentId?: string) => void;
 }
 
 const questionVariants = {
-	enter: { y: 300, opacity: 0, scale: 0.95 },
-	center: { y: 0, opacity: 1, scale: 1 },
-	exit: { y: -300, opacity: 0, scale: 0.95 },
+    enter: { y: 300, opacity: 0, scale: 0.95 },
+    center: { y: 0, opacity: 1, scale: 1 },
+    exit: { y: -300, opacity: 0, scale: 0.95 },
 };
 
 const QuizView = ({ mode, questionCount, unitIds, mainChapter, assignmentId, onExit, onQuizComplete }: QuizViewProps) => {
-	const { user } = useAuth();
-	const { questions, isLoading, error, fetchQuestions } = useQuiz();
-	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-	const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
-	const [isSubmitting, setIsSubmitting] = useState(false);
+    const { user } = useAuth();
+    const { questions, isLoading, error, fetchQuestions } = useQuiz();
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [userAnswers, setUserAnswers] = useState<(number | null)[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-	useEffect(() => {
-		if (questions.length > 0) {
-			setUserAnswers(Array(questions.length).fill(null));
-		}
-	}, [questions]);
+    useEffect(() => {
+        if (questions.length > 0) {
+            setUserAnswers(Array(questions.length).fill(null));
+        }
+    }, [questions]);
 
-	useEffect(() => {
-		fetchQuestions(mode, questionCount, unitIds);
-	}, [mode, questionCount, unitIds, fetchQuestions]);
+    useEffect(() => {
+        fetchQuestions(mode, questionCount, unitIds);
+    }, [mode, questionCount, unitIds, fetchQuestions]);
 
-	const handleNextQuestion = (choiceIndex: number) => {
-		const newAnswers = [...userAnswers];
-		newAnswers[currentQuestionIndex] = choiceIndex;
-		setUserAnswers(newAnswers);
+    const handleNextQuestion = (choiceIndex: number) => {
+        const newAnswers = [...userAnswers];
+        newAnswers[currentQuestionIndex] = choiceIndex;
+        setUserAnswers(newAnswers);
 
-		const isLastQuestion = currentQuestionIndex === questions.length - 1;
+        const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
-		setTimeout(() => {
-			if (isLastQuestion) {
-				handleSubmit(newAnswers);
-			} else {
-				setCurrentQuestionIndex(prev => prev + 1);
-			}
-		}, 1200);
-	};
+        setTimeout(() => {
+            if (isLastQuestion) {
+                handleSubmit(newAnswers);
+            } else {
+                setCurrentQuestionIndex(prev => prev + 1);
+            }
+        }, 1200);
+    };
 
-	const handleSubmit = async (finalAnswers: (number | null)[]) => {
-		if (!user || isSubmitting) return;
-		setIsSubmitting(true);
+    const handleSubmit = async (finalAnswers: (number | null)[]) => {
+        if (!user || isSubmitting) return;
+        setIsSubmitting(true);
 
-		console.log("assignmentId:", assignmentId);
+        console.log("assignmentId:", assignmentId);
 
-		const correctAnswers = finalAnswers.filter((answer, index) => questions[index].answerIndex === answer).length;
-		const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
-		console.log("finalAnswers:", finalAnswers);
-		console.log("questions:", questions);
+        const correctAnswers = finalAnswers.filter((answer, index) => questions[index].answerIndex === answer).length;
+        const score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+        console.log("finalAnswers:", finalAnswers);
+        console.log("questions:", questions);
 
-		// 유저 - 문제 최신 풀이 결과 업데이트
+        // 유저 - 문제 최신 풀이 결과 업데이트
 
-		try {
-			const userStatsRef = doc(db, "userQuestionStats", `stats_${user.uid}`);
+        try {
+            const userStatsRef = doc(db, "userQuestionStats", `stats_${user.uid}`);
 
-			// stats 전체 맵 업데이트
-			const now = new Date();
-			const statsUpdate: Record<string, any> = {};
-			questions.forEach((q, index) => {
-				const result = q.answerIndex === finalAnswers[index] ? "O" : "X";
-				statsUpdate[q.id] = {
-					latestResult: result,
-					latestAnswer: finalAnswers[index],
-					answeredDatetime: now,
-				};
-			});
+            // stats 전체 맵 업데이트
+            const now = new Date();
+            const statsUpdate: Record<string, any> = {};
+            questions.forEach((q, index) => {
+                const result = q.answerIndex === finalAnswers[index] ? "O" : "X";
+                statsUpdate[q.id] = {
+                    latestResult: result,
+                    latestAnswer: finalAnswers[index],
+                    answeredDatetime: now,
+                };
+            });
 
-			await setDoc(
-				userStatsRef,
-				{ stats: statsUpdate }, // stats 맵 필드 안에 저장
-				{ merge: true }
-			);
-		} catch (error) {
-			console.error("❌ 업데이트 실패:", error);
-		}
+            await setDoc(
+                userStatsRef,
+                { stats: statsUpdate }, // stats 맵 필드 안에 저장
+                { merge: true }
+            );
+        } catch (error) {
+            console.error("❌ 업데이트 실패:", error);
+        }
 
-		if (assignmentId) {
-			const submissionResult: Submission = {
-				id: '',
-				userId: user.uid,
-				questionIds: questions.map(q => q.id),
-				answers: finalAnswers,
-				score,
-				mainChapter: mainChapter || '종합',
-				createdAt: Timestamp.now(),
-				isDeleted: false,
-			};
-			onQuizComplete(submissionResult, questions, assignmentId);
-			setIsSubmitting(false);
-			return;
-		}
+        // ✅ *** [추가된 부분 2/2] *** 실제 학습 단원명을 생성하는 최종 로직
+        const getDynamicChapterName = (): string => {
+            if (mainChapter) return mainChapter;
+            if (questions.length === 0) return "자율학습";
+    
+            // 문제들의 unitId에서 대단원 코드('1-1' 등)를 추출하여 Set에 저장 (중복 자동 제거)
+            const chapterCodes = new Set<string>(
+                questions.map(q => {
+                    const parts = q.unitId.split('-');
+                    return `${parts[0]}-${parts[1]}`;
+                })
+            );
 
-		const submissionData: Omit<Submission, 'id'> = {
-			userId: user.uid,
-			questionIds: questions.map(q => q.id),
-			answers: finalAnswers,
-			score,
-			mainChapter: mainChapter || '종합',
-			createdAt: serverTimestamp(),
-			isDeleted: false,
-		};
+            const chapterNames = new Set<string>();
 
-		// ▼▼▼ userQuestionStats 관련 트랜잭션 코드를 제거하고 아래 코드로 수정합니다. ▼▼▼
-		try {
-			// submissions 컬렉션에 submissionData를 직접 추가합니다.
-			const submissionRef = await addDoc(collection(db, 'submissions'), submissionData);
+            // 추출된 대단원 코드를 순회
+            for (const code of chapterCodes) {
+                // 전체 커리큘럼에서 해당 코드를 가진 대단원을 검색
+                for (const subject in curriculumData) {
+                    const foundChapter = curriculumData[subject as keyof typeof curriculumData].find(c => c.id === code);
+                    if (foundChapter) {
+                        chapterNames.add(foundChapter.name); // 찾았으면 대단원 이름을 Set에 추가
+                    }
+                }
+            }
+            
+            return [...chapterNames].join(', ') || "자율학습";
+        };
+        // *** [추가된 로직 끝] ***
 
-			// onQuizComplete 콜백에 새로 생성된 문서의 ID와 데이터를 전달합니다.
-			onQuizComplete({ id: submissionRef.id, ...submissionData } as Submission, questions);
+        if (assignmentId) {
+            const submissionResult: Submission = {
+                id: '',
+                userId: user.uid,
+                questionIds: questions.map(q => q.id),
+                answers: finalAnswers,
+                score,
+                mainChapter: getDynamicChapterName(),
+                createdAt: Timestamp.now(),
+                isDeleted: false,
+            };
+            onQuizComplete(submissionResult, questions, assignmentId);
+            setIsSubmitting(false);
+            return;
+        }
 
-		} catch (error) {
-			console.error("결과 저장 오류:", error);
-			onExit(); // 에러 발생 시 퀴즈를 종료합니다.
-		} finally {
-			setIsSubmitting(false);
-		}
-		// ▲▲▲ 여기까지 수정 ▲▲▲
-	};
+        const submissionData: Omit<Submission, 'id'> = {
+            userId: user.uid,
+            questionIds: questions.map(q => q.id),
+            answers: finalAnswers,
+            score,
+            mainChapter: getDynamicChapterName(),
+            createdAt: serverTimestamp(),
+            isDeleted: false,
+        };
 
-	if (isLoading) return <LoadingSpinner />;
-	if (error) return <div className="flex items-center justify-center min-h-screen text-red-500 p-8 text-center">{error}</div>;
-	if (questions.length === 0 && !isLoading) return <div className="flex items-center justify-center min-h-screen text-slate-500">생성된 문제가 없습니다.</div>;
+        // ▼▼▼ userQuestionStats 관련 트랜잭션 코드를 제거하고 아래 코드로 수정합니다. ▼▼▼
+        try {
+            // submissions 컬렉션에 submissionData를 직접 추가합니다.
+            const submissionRef = await addDoc(collection(db, 'submissions'), submissionData);
 
-	const currentQuestion = questions[currentQuestionIndex];
+            // onQuizComplete 콜백에 새로 생성된 문서의 ID와 데이터를 전달합니다.
+            onQuizComplete({ id: submissionRef.id, ...submissionData } as Submission, questions);
 
-	return (
-		<div className="flex flex-col min-h-screen bg-slate-100 w-full overflow-hidden">
-			<QuizHeader current={currentQuestionIndex + 1} total={questions.length} onExit={onExit} />
+        } catch (error) {
+            console.error("결과 저장 오류:", error);
+            onExit(); // 에러 발생 시 퀴즈를 종료합니다.
+        } finally {
+            setIsSubmitting(false);
+        }
+        // ▲▲▲ 여기까지 수정 ▲▲▲
+    };
 
-			<main className="relative flex-grow w-full flex items-center justify-center p-4">
-				<AnimatePresence mode="wait">
-					<motion.div
-						key={currentQuestionIndex}
-						variants={questionVariants}
-						initial="enter"
-						animate="center"
-						exit="exit"
-						transition={{ y: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
-						className="w-full max-w-2xl"
-					>
-						<QuestionCard
-							question={currentQuestion}
-							onAnswerSelect={handleNextQuestion}
-						/>
-					</motion.div>
-				</AnimatePresence>
-			</main>
-		</div>
-	);
+    if (isLoading) return <LoadingSpinner />;
+    if (error) return <div className="flex items-center justify-center min-h-screen text-red-500 p-8 text-center">{error}</div>;
+    if (questions.length === 0 && !isLoading) return <div className="flex items-center justify-center min-h-screen text-slate-500">생성된 문제가 없습니다.</div>;
+
+    const currentQuestion = questions[currentQuestionIndex];
+
+    return (
+        <div className="flex flex-col min-h-screen bg-slate-100 w-full overflow-hidden">
+            <QuizHeader current={currentQuestionIndex + 1} total={questions.length} onExit={onExit} />
+
+            <main className="relative flex-grow w-full flex items-center justify-center p-4">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentQuestionIndex}
+                        variants={questionVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={{ y: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
+                        className="w-full max-w-2xl"
+                    >
+                        <QuestionCard
+                            question={currentQuestion}
+                            onAnswerSelect={handleNextQuestion}
+                        />
+                    </motion.div>
+                </AnimatePresence>
+            </main>
+        </div>
+    );
 };
 
 export default QuizView;
