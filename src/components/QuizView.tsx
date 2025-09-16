@@ -12,7 +12,7 @@ import LoadingSpinner from './LoadingSpinner';
 import { doc, collection, serverTimestamp, Timestamp, addDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from '@/context/AuthContext';
-// ✅ *** [추가된 부분 1/2] *** curriculum 데이터를 가져옵니다.
+// curriculum.ts에서 curriculumData를 가져옵니다.
 import { curriculumData } from '@/data/curriculum';
 
 interface QuizViewProps {
@@ -101,35 +101,45 @@ const QuizView = ({ mode, questionCount, unitIds, mainChapter, assignmentId, onE
             console.error("❌ 업데이트 실패:", error);
         }
 
-        // ✅ *** [추가된 부분 2/2] *** 실제 학습 단원명을 생성하는 최종 로직
+        // ✅ *** [추가된 부분] *** 최종 수정된 단원명 생성 로직
         const getDynamicChapterName = (): string => {
+            // 1. 과제는 최우선으로 처리
             if (mainChapter) return mainChapter;
-            if (questions.length === 0) return "자율학습";
-    
-            // 문제들의 unitId에서 대단원 코드('1-1' 등)를 추출하여 Set에 저장 (중복 자동 제거)
-            const chapterCodes = new Set<string>(
-                questions.map(q => {
-                    const parts = q.unitId.split('-');
-                    return `${parts[0]}-${parts[1]}`;
-                })
-            );
 
-            const chapterNames = new Set<string>();
+            // 2. '자유 복습' 모드('review_all', 'review_incorrect')는 "복습"으로 고정
+            if (mode === 'review_all' || mode === 'review_incorrect') {
+                return "복습";
+            }
 
-            // 추출된 대단원 코드를 순회
-            for (const code of chapterCodes) {
-                // 전체 커리큘럼에서 해당 코드를 가진 대단원을 검색
-                for (const subject in curriculumData) {
-                    const foundChapter = curriculumData[subject as keyof typeof curriculumData].find(c => c.id === code);
-                    if (foundChapter) {
-                        chapterNames.add(foundChapter.name); // 찾았으면 대단원 이름을 Set에 추가
+            // 3. '신규 문항'('new'), '신규+복습'('new_review') 모드는 대단원명 계산
+            if ((mode === 'new' || mode === 'new_review') && questions.length > 0) {
+                const chapterCodes = new Set<string>(
+                    questions.map(q => {
+                        const parts = q.unitId.split('-');
+                        return `${parts[0]}-${parts[1]}`;
+                    })
+                );
+
+                const chapterNames = new Set<string>();
+
+                for (const code of chapterCodes) {
+                    for (const subject in curriculumData) {
+                        const foundChapter = curriculumData[subject as keyof typeof curriculumData].find(c => c.id === code);
+                        if (foundChapter) {
+                            chapterNames.add(foundChapter.name);
+                        }
                     }
+                }
+                
+                if (chapterNames.size > 0) {
+                    return [...chapterNames].join(', ');
                 }
             }
             
-            return [...chapterNames].join(', ') || "자율학습";
+            // 4. 그 외 모든 예외 케이스는 '자율학습'으로 처리
+            return "자율학습";
         };
-        // *** [추가된 로직 끝] ***
+        // *** [로직 끝] ***
 
         if (assignmentId) {
             const submissionResult: Submission = {
