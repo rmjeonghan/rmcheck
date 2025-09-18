@@ -30,6 +30,7 @@ export const getKakaoLoginUrl = onRequest({ region: "asia-northeast3" }, (req, r
     "https://rmcheck-4e79c.web.app",
     "https://localhost:3000",
     "http://localhost:3000",
+    "https://rmdailytest-u.web.app",
   ];
 
   const origin = req.get("Origin");

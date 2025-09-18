@@ -75,9 +75,6 @@ const Login = () => {
       // https://asia-northeast3-rmcheck-4e79c.cloudfunctions.net/getKakaoLoginUrl
       const res = await fetch("https://getkakaologinurl-3xc66hnuaa-du.a.run.app", {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
       });
 
       if (!res.ok) {
@@ -130,13 +127,13 @@ const Login = () => {
             <FcGoogle className="w-6 h-6 mr-3" />
             <span>Google 계정으로 시작하기</span>
           </button>
-          <button
+          {/*<button
             onClick={onKakaoLogin}
             className="w-full flex items-center justify-center px-4 py-3 bg-[#FEE500] rounded-lg shadow-sm text-base font-medium text-black hover:bg-yellow-400 transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
           >
             <RiKakaoTalkFill className="w-6 h-6 mr-3" />
             <span>카카오 계정으로 시작하기</span>
-          </button>
+          </button>*/}
         </motion.div>
       </motion.div>
     </div>

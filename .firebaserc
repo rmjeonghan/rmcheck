@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "rmcheck-4e79c"
-  }
+  },
+  "targets": {
+    "rmcheck-4e79c": {
+      "hosting": {
+        "new": [
+          "rmdailytest"
+        ],
+        "old": [
+          "rmcheck-4e79c"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

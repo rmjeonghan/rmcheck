@@ -1,15 +1,4 @@
 {
-  "hosting": {
-    "source": ".", 
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "frameworksBackend": { 
-      "region": "asia-northeast3" 
-    }
-  },
   "functions": [
     {
       "source": "functions",
@@ -20,6 +9,32 @@
         "firebase-debug.log",
         "firebase-debug.*.log"
       ]
+    }
+  ],
+  "hosting": [
+    {
+      "site": "rmcheck-4e79c",
+      "source": ".",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "frameworksBackend": {
+        "region": "asia-northeast3"
+      }
+    },
+    {
+      "site": "rmdailytest-u",
+      "source": ".",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "frameworksBackend": {
+        "region": "asia-northeast3"
+      }
     }
   ]
 }
